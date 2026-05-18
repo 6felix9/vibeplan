@@ -46,6 +46,8 @@ function LoadingContent() {
         if (result.itineraryId) {
           // Use database ID (new approach)
           params.set('id', result.itineraryId)
+        } else {
+          params.set('results', JSON.stringify(result))
         }
         
         router.push(`/results?${params.toString()}`)
@@ -171,4 +173,3 @@ export default function LoadingPage() {
     </Suspense>
   )
 }
-

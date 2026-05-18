@@ -185,8 +185,13 @@ export default function ExplorePage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            {publicItineraries.map((item) => (
-              <Link key={item.id} href={`/results?id=${item.id}`}>
+            {publicItineraries.map((item) => {
+              const resultsHref = `/results?results=${encodeURIComponent(
+                JSON.stringify(item.itinerary_data)
+              )}`;
+
+              return (
+              <Link key={item.id} href={resultsHref}>
                 <Card className="hover:border-cyan-400 transition-all cursor-pointer">
                   <CardHeader>
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
@@ -254,7 +259,8 @@ export default function ExplorePage() {
                   </CardContent>
                 </Card>
               </Link>
-            ))}
+              );
+            })}
 
             {publicItineraries.length === 0 && (
               <Card>
