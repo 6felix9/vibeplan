@@ -5,10 +5,9 @@ export const dynamic = 'force-dynamic'
 import { useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search } from "lucide-react"
+import { Database, MapPin, Search } from "lucide-react"
 import Image from "next/image"
 import TelegramLogo from "@/app/assets/telegram-app-48.png"
-import ExaLogo from "@/app/assets/exa.png"
 
 function LoadingContent() {
   const router = useRouter()
@@ -41,14 +40,8 @@ function LoadingContent() {
 
         const result = await response.json()
         
-        // Navigate to results page with the itinerary ID (preferred) or full data (fallback)
         const params = new URLSearchParams()
-        if (result.itineraryId) {
-          // Use database ID (new approach)
-          params.set('id', result.itineraryId)
-        } else {
-          params.set('results', JSON.stringify(result))
-        }
+        params.set('results', JSON.stringify(result))
         
         router.push(`/results?${params.toString()}`)
       } catch (error) {
@@ -67,7 +60,7 @@ function LoadingContent() {
       icon: <Search className="h-6 w-6 text-primary" />,
       text: (
         <>
-          Gather location information and research activity options
+          Reading the local mock itinerary data
         </>
       ),
       delay: "0s"
@@ -80,7 +73,7 @@ function LoadingContent() {
       ),
       text: (
         <>
-          Fetching the latest Telegram deals from <strong>SG Kiasu Foodies</strong>
+          Loading mock Telegram-style deals
         </>
       ),
       delay: "0.8s"
@@ -93,33 +86,25 @@ function LoadingContent() {
       ),
       text: (
         <>
-          Fetching the best Telegram deals from <strong>Good-2-Go</strong>
+          Loading mock social recommendations
         </>
       ),
       delay: "1.6s"
     },
     {
-      icon: (
-        <div className="relative w-6 h-6">
-          <Image src={ExaLogo} alt="Exa" fill className="object-contain" />
-        </div>
-      ),
+      icon: <Database className="h-6 w-6 text-primary" />,
       text: (
         <>
-          Searching for things to do with <strong>Exa</strong>
+          Assembling the demo activity timeline
         </>
       ),
       delay: "2.4s"
     },
     {
-      icon: (
-        <div className="relative w-6 h-6">
-          <Image src={ExaLogo} alt="Exa" fill className="object-contain" />
-        </div>
-      ),
+      icon: <MapPin className="h-6 w-6 text-primary" />,
       text: (
         <>
-          Searching for food options with <strong>Exa</strong>
+          Plotting mock coordinates on the local map
         </>
       ),
       delay: "3.2s"
@@ -132,10 +117,10 @@ function LoadingContent() {
         {/* Main Loading Text */}
         <div className="space-y-4">
           <h1 className="text-4xl md:text-5xl font-serif">
-            Let me cook... 👨‍🍳
+            Let me cook...
           </h1>
           <p className="text-muted-foreground text-lg">
-            Finding the perfect activities for you
+            Preparing a mock itinerary
           </p>
         </div>
 

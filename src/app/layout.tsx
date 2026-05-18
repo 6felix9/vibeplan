@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Instrument_Sans, Instrument_Serif } from "next/font/google";
-import { Provider } from "jotai";
 import "./globals.css";
 
 const instrumentSans = Instrument_Sans({
@@ -18,8 +17,8 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "VibePlan - AI Weekend Planner for Singapore",
-  description: "AI that plans your weekend activities in Singapore",
+  title: "VibePlan - Weekend Planner for Singapore",
+  description: "Mock weekend activity planner for Singapore",
 };
 
 export default function RootLayout({
@@ -32,7 +31,7 @@ export default function RootLayout({
       <body
         className={`${instrumentSans.variable} ${instrumentSerif.variable} font-sans antialiased`}
       >
-        <Provider>{children}</Provider>
+        {children}
       </body>
     </html>
   );

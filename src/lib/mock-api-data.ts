@@ -110,7 +110,6 @@ export const mockPublicItineraries = [
     user_id: "mock-user-1",
     user_profile: {
       user_id: "mock-user-1",
-      avatar_url: null,
       full_name: "Mock User",
       name: "Mock User",
     },
@@ -136,7 +135,6 @@ export const mockPublicItineraries = [
     user_id: "mock-user-2",
     user_profile: {
       user_id: "mock-user-2",
-      avatar_url: null,
       full_name: "Demo Planner",
       name: "Demo Planner",
     },

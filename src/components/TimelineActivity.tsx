@@ -1,8 +1,6 @@
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Tag, ExternalLink } from "lucide-react"
+import { MapPin, DollarSign, ExternalLink } from "lucide-react"
 import Image from "next/image"
-import ExaLogo from "@/app/assets/exa.png"
 import TelegramLogo from "@/app/assets/telegram-app-48.png"
 import InstagramLogo from "@/app/assets/instagram-48.png"
 
@@ -35,13 +33,7 @@ function getSourceIcon(activity: TimelineActivity) {
     return { logo: InstagramLogo, alt: 'Instagram' }
   }
 
-  // Check if source_type is 'web' (from Exa)
-  if (activity.source_type === 'web') {
-    return { logo: ExaLogo, alt: 'Exa' }
-  }
-
-  // Default to Telegram for other sources
-  return { logo: TelegramLogo, alt: 'Telegram' }
+  return { logo: TelegramLogo, alt: 'Mock source' }
 }
 
 export function TimelineActivity({ activity, isLast = false }: TimelineActivityProps) {
@@ -104,14 +96,18 @@ export function TimelineActivity({ activity, isLast = false }: TimelineActivityP
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-primary hover:underline flex-shrink-0"
               >
-                <div className="relative w-4 h-4 flex-shrink-0">
-                  <Image
-                    src={sourceIcon.logo}
-                    alt={sourceIcon.alt}
-                    fill
-                    className="object-contain"
-                  />
-                </div>
+                {activity.source_type === 'web' ? (
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <div className="relative w-4 h-4 flex-shrink-0">
+                    <Image
+                      src={sourceIcon.logo}
+                      alt={sourceIcon.alt}
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
+                )}
                 <span className="underline">View source</span>
               </a>
             )
@@ -132,4 +128,3 @@ export function TimelineActivity({ activity, isLast = false }: TimelineActivityP
     </div>
   )
 }
-

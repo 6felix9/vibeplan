@@ -36,11 +36,10 @@ interface PublicItinerary {
   mbti?: string;
   spicy?: boolean;
   itinerary_data: {
-    activities: any[];
+    activities: unknown[];
   };
   user_profile: {
     user_id: string;
-    avatar_url?: string;
     full_name?: string;
     name?: string;
   };
@@ -208,18 +207,9 @@ export default function ExplorePage() {
 
                       {/* User Profile */}
                       <div className="flex items-center gap-2">
-                        {item.user_profile?.avatar_url ? (
-                          <img
-                            src={item.user_profile.avatar_url}
-                            alt="Profile"
-                            className="w-8 h-8 rounded-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-semibold">
-                            <User className="h-4 w-4" />
-                          </div>
-                        )}
+                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-semibold">
+                          <User className="h-4 w-4" />
+                        </div>
                         <span className="text-sm font-medium text-muted-foreground">
                           {item.user_profile?.full_name ||
                             item.user_profile?.name ||
@@ -274,7 +264,7 @@ export default function ExplorePage() {
                     community
                   </p>
                   <Button asChild>
-                    <a href="/">Create Your First Itinerary</a>
+                    <Link href="/">Create Your First Itinerary</Link>
                   </Button>
                 </CardContent>
               </Card>
