@@ -1,24 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  ChevronLeft,
-  ChevronRight,
-  PlusCircle,
-  History,
-  Info,
-  User,
   ChevronDown,
   Compass,
-  Video,
-  ExternalLink,
+  History,
+  Info,
+  Menu,
+  Search,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   Collapsible,
   CollapsibleContent,
@@ -42,269 +46,296 @@ function formatTimeAgo(dateString: string): string {
   return `${diffWeeks} weeks ago`;
 }
 
+const primaryLinks = [
+  { href: "/", label: "Discover", icon: Search },
+  { href: "/explore", label: "Explore", icon: Compass },
+];
+
+function LogoLink({ onClick }: { onClick?: () => void }) {
+  return (
+    <Link href="/" className="flex items-end" onClick={onClick}>
+      <div className="relative h-8 w-8 shrink-0">
+        <Image
+          src={IconLogo}
+          alt="VibePlan Icon"
+          fill
+          sizes="32px"
+          className="object-contain"
+        />
+      </div>
+      <div className="relative h-6 w-32">
+        <Image
+          src={FullLogo}
+          alt="VibePlan"
+          fill
+          sizes="128px"
+          className="object-contain object-left"
+        />
+      </div>
+    </Link>
+  );
+}
+
 export function Sidebar() {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopHistoryOpen, setDesktopHistoryOpen] = useState(false);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(true);
   const pathname = usePathname();
 
-  // Use custom hook for history management
   const { user, historyItems, fetchHistory } = useHistory();
 
-  // Fetch history on component mount
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
 
   const isActive = (path: string) => pathname === path;
+  const profileLabel =
+    user?.user_metadata?.full_name || user?.user_metadata?.name || "Profile";
 
   return (
-    <aside
-      className={cn(
-        "hidden md:flex flex-col border-r border-primary/20 bg-white/60 backdrop-blur-md h-screen sticky top-0 transition-all duration-300",
-        isExpanded ? "w-64" : "w-16"
-      )}
-    >
-      {/* Logo */}
-      <div
-        className={cn(
-          "flex items-center border-b border-primary/20 transition-all duration-300",
-          isExpanded ? "justify-between p-4 h-16" : "justify-center p-2 h-16"
-        )}
-      >
-        {isExpanded ? (
-          <>
-            <Link href="/" className="flex items-end">
-              <div className="relative w-8 h-8 flex-shrink-0">
-                <Image
-                  src={IconLogo}
-                  alt="VibePlan Icon"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-              <div className="relative h-6 w-32">
-                <Image
-                  src={FullLogo}
-                  alt="VibePlan"
-                  fill
-                  className="object-contain object-left"
-                />
-              </div>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-primary/10"
-              onClick={() => setIsExpanded(false)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </>
-        ) : (
-          <div
-            className="w-full flex justify-center cursor-pointer"
-            onClick={() => setIsExpanded(true)}
-          >
-            <Link href="/" onClick={(e) => e.stopPropagation()}>
-              <div className="relative w-10 h-10">
-                <Image
-                  src={IconLogo}
-                  alt="VibePlan"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            </Link>
-          </div>
-        )}
-      </div>
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-primary/15 bg-white/75 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <LogoLink />
 
-      {/* Navigation */}
-      <nav
-        className={cn(
-          "flex-1 space-y-2 flex flex-col transition-all duration-300",
-          isExpanded ? "p-4" : "p-1 items-center cursor-pointer"
-        )}
-        onClick={(e) => {
-          if (!isExpanded && !(e.target as HTMLElement).closest("a, button")) {
-            setIsExpanded(true);
-          }
-        }}
-      >
-        {/* New Activity */}
-        <Link href="/" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant={isActive("/") ? "default" : "ghost"}
-            className={cn(
-              "w-full justify-start",
-              !isExpanded && "justify-center p-0 h-12 w-12",
-              !isActive("/") && "border-2 border-gray-300"
-            )}
-          >
-            <PlusCircle className="h-5 w-5" />
-            {isExpanded && <span className="ml-2">New Activity</span>}
-          </Button>
-        </Link>
+        <nav className="hidden items-center gap-1 md:flex">
+          {primaryLinks.map((item) => {
+            const Icon = item.icon;
 
-        {/* Explore */}
-        <Link href="/explore" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant={isActive("/explore") ? "default" : "ghost"}
-            className={cn(
-              "w-full justify-start",
-              !isExpanded && "justify-center p-0 h-12 w-12"
-            )}
-          >
-            <Compass className="h-5 w-5" />
-            {isExpanded && <span className="ml-2">Explore</span>}
-          </Button>
-        </Link>
-
-        {/* History Collapsible Dropdown */}
-        {isExpanded ? (
-          <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant={isActive("/history") ? "default" : "ghost"}
-                className="w-full justify-between"
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all hover:bg-primary/10",
+                  isActive(item.href)
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-primary/75"
+                )}
               >
-                <div className="flex items-center">
-                  <History className="h-5 w-5" />
-                  <span className="ml-2">History</span>
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          <div className="relative">
+            <Button
+              type="button"
+              variant={isActive("/history") ? "default" : "ghost"}
+              className="h-10 rounded-full px-4"
+              onClick={() => setDesktopHistoryOpen((open) => !open)}
+            >
+              <History className="mr-2 h-4 w-4" />
+              History
+              <ChevronDown
+                className={cn(
+                  "ml-2 h-4 w-4 transition-transform",
+                  desktopHistoryOpen && "rotate-180"
+                )}
+              />
+            </Button>
+
+            {desktopHistoryOpen && (
+              <div className="absolute left-1/2 top-12 w-80 -translate-x-1/2 rounded-lg border border-primary/15 bg-white p-2 shadow-[0_18px_60px_rgba(15,23,42,0.16)]">
+                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Recent searches
                 </div>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-transform",
-                    historyOpen && "rotate-180"
-                  )}
-                />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-1">
-              <div className="ml-6 border-l-2 border-border pl-2 space-y-1">
-                {historyItems.length > 0 ? (
-                  <>
-                    {historyItems.map((item) => (
+                <div className="space-y-1">
+                  {historyItems.length > 0 ? (
+                    historyItems.map((item) => (
                       <Link
                         key={item.id}
                         href={`/results?id=${item.id}`}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={() => setDesktopHistoryOpen(false)}
+                        className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-primary/5"
                       >
-                        <div className="px-2 py-2 hover:bg-accent rounded-md cursor-pointer text-sm">
-                          <p className="font-medium truncate">
-                            {item.query || "Untitled itinerary"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatTimeAgo(item.created_at)}
-                          </p>
-                        </div>
+                        <p className="truncate font-medium">
+                          {item.query || "Untitled itinerary"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTimeAgo(item.created_at)}
+                        </p>
                       </Link>
-                    ))}
-                    <Link href="/history" onClick={(e) => e.stopPropagation()}>
-                      <div className="px-2 py-2 hover:bg-accent rounded-md cursor-pointer text-sm font-medium text-[#25404D] underline">
-                        View all history
-                      </div>
-                    </Link>
-                  </>
-                ) : (
-                  <div className="px-2 py-2 text-sm text-muted-foreground">
-                    No recent searches
-                  </div>
-                )}
+                    ))
+                  ) : (
+                    <p className="px-3 py-3 text-sm text-muted-foreground">
+                      No recent searches
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href="/history"
+                  onClick={() => setDesktopHistoryOpen(false)}
+                  className="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-primary underline underline-offset-4 hover:bg-primary/5"
+                >
+                  View all history
+                </Link>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ) : (
-          <Link href="/history" onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant={isActive("/history") ? "default" : "ghost"}
-              className="w-12 h-12 justify-center p-0"
-            >
-              <History className="h-5 w-5" />
-            </Button>
-          </Link>
-        )}
-
-        {/* Spacer to push bottom items down */}
-        <div className="flex-1" />
-
-        {/* Beta Video Card */}
-        {isExpanded && (
-          <div className="mb-6 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex flex-col items-start gap-2 mb-2">
-              <div className="relative w-12 h-12 flex-shrink-0">
-                <Image
-                  src={IconLogo}
-                  alt="VibePlan"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-              <p className="font-serif font-bold text-primary text-base">Vibeplan in Open Beta!</p>
-            </div>
-            <div className="text-xs">
-              <p className="text-muted-foreground mb-2">
-                Watch the video for a quick walkthrough
-              </p>
-              <a
-                href="https://drive.google.com/file/d/1GQ4iijbWHQM8856ji1QGDdPK3lo2KK-C/view"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span>Watch demo</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
+            )}
           </div>
-        )}
+        </nav>
 
-        <Separator className="my-2 bg-primary/20" />
-
-        {/* About */}
-        <Link href="/about" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant={isActive("/about") ? "default" : "ghost"}
+        <div className="hidden items-center gap-1 md:flex">
+          <Link
+            href="/about"
             className={cn(
-              "w-full justify-start",
-              !isExpanded && "justify-center p-0 h-12 w-12"
+              "inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all hover:bg-primary/10",
+              isActive("/about")
+                ? "bg-primary text-primary-foreground"
+                : "text-primary/75"
             )}
           >
-            <Info className="h-5 w-5" />
-            {isExpanded && <span className="ml-2">About</span>}
-          </Button>
-        </Link>
+            <Info className="h-4 w-4" />
+            About
+          </Link>
 
-        {/* Profile */}
-        <Link href="/profile" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant={isActive("/profile") ? "default" : "ghost"}
+          <Link
+            href="/profile"
             className={cn(
-              "w-full justify-start gap-2",
-              !isExpanded && "justify-center p-0 h-12 w-12"
+              "inline-flex h-10 max-w-48 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all hover:bg-primary/10",
+              isActive("/profile")
+                ? "bg-primary text-primary-foreground"
+                : "text-primary/75"
             )}
           >
             {user?.user_metadata?.avatar_url ? (
               <img
                 src={user.user_metadata.avatar_url}
                 alt="Profile"
-                className="w-5 h-5 rounded-full object-cover"
+                className="h-5 w-5 rounded-full object-cover"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <User className="h-5 w-5" />
+              <User className="h-4 w-4" />
             )}
-            {isExpanded && (
-              <span className="truncate">
-                {user?.user_metadata?.full_name ||
-                  user?.user_metadata?.name ||
-                  "Profile"}
-              </span>
-            )}
-          </Button>
-        </Link>
-      </nav>
-    </aside>
+            <span className="truncate">{profileLabel}</span>
+          </Link>
+        </div>
+
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[86vw] max-w-sm">
+            <SheetHeader>
+              <SheetTitle className="text-left">
+                <LogoLink onClick={() => setMobileOpen(false)} />
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Main navigation links, recent history, and account pages.
+              </SheetDescription>
+            </SheetHeader>
+
+            <nav className="mt-8 flex flex-col gap-2">
+              {primaryLinks.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={isActive(item.href) ? "default" : "ghost"}
+                      className="w-full justify-start rounded-full"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <Icon className="mr-2 h-5 w-5" />
+                      {item.label}
+                    </Button>
+                  </Link>
+                );
+              })}
+
+              <Collapsible
+                open={mobileHistoryOpen}
+                onOpenChange={setMobileHistoryOpen}
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant={isActive("/history") ? "default" : "ghost"}
+                    className="w-full justify-between rounded-full"
+                  >
+                    <span className="flex items-center">
+                      <History className="mr-2 h-5 w-5" />
+                      History
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        mobileHistoryOpen && "rotate-180"
+                      )}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 space-y-1 border-l border-primary/15 pl-4">
+                  {historyItems.length > 0 ? (
+                    historyItems.slice(0, 5).map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/results?id=${item.id}`}
+                        onClick={() => setMobileOpen(false)}
+                        className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-primary/5"
+                      >
+                        <p className="truncate font-medium">
+                          {item.query || "Untitled itinerary"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTimeAgo(item.created_at)}
+                        </p>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      No recent searches
+                    </p>
+                  )}
+                  <Link
+                    href="/history"
+                    onClick={() => setMobileOpen(false)}
+                    className="block rounded-md px-3 py-2 text-sm font-medium text-primary underline underline-offset-4"
+                  >
+                    View all history
+                  </Link>
+                </CollapsibleContent>
+              </Collapsible>
+
+              <div className="my-3 h-px bg-primary/15" />
+
+              <Link href="/about">
+                <Button
+                  variant={isActive("/about") ? "default" : "ghost"}
+                  className="w-full justify-start rounded-full"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <Info className="mr-2 h-5 w-5" />
+                  About
+                </Button>
+              </Link>
+
+              <Link href="/profile">
+                <Button
+                  variant={isActive("/profile") ? "default" : "ghost"}
+                  className="w-full justify-start gap-2 rounded-full"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="Profile"
+                      className="h-5 w-5 rounded-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <User className="h-5 w-5" />
+                  )}
+                  <span className="truncate">{profileLabel}</span>
+                </Button>
+              </Link>
+            </nav>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </header>
   );
 }
