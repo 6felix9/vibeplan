@@ -1,15 +1,19 @@
 # Exclude data ingestion scripts and tools from Vercel deployment
-data-ingestion/
-data-ingestion/**
+data_ingestion/
+data_ingestion/**
 
 # Exclude test files
 test-*.ts
 test_*.py
 *.ipynb
 
-# Exclude Python-specific files (not needed for Next.js deployment)
+# Exclude Python-specific files and runtime data (not needed for Next.js deployment)
 chromadb_api.py
 requirements.txt
+data/
+*.log
+*.session
+tele_extracted*.json
 
 # Exclude Python cache and databases
 __pycache__/
