@@ -1,13 +1,13 @@
 # VibePlan Deployment
 
-This repository currently runs as a mock-only Next.js app. The data aggregation
-backend has been removed so it can be rebuilt separately.
+This repository runs as a frontend-only mock Next.js app. There are no service
+routes, auth callbacks, database clients, or server services required.
 
 ## Vercel
 
 1. Connect the repository to Vercel.
 2. Set the framework preset to Next.js.
-3. Deploy without backend API environment variables.
+3. Deploy without service environment variables.
 
 ## Verification
 
@@ -16,5 +16,5 @@ npm run build
 npm run lint
 ```
 
-Then verify the app can generate a mock itinerary through `/loading`, render
-`/results`, and show mock entries in `/explore`, `/history`, and `/profile`.
+Then verify the app can load a mock itinerary through `/loading`, render
+`/results`, and show the static `/profile` page.

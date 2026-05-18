@@ -36,7 +36,7 @@ export default function AboutPage() {
               About VibePlan
             </h1>
             <p className="text-muted-foreground text-lg">
-              AI that plans your weekend
+              A frontend mock that plans your weekend
             </p>
           </div>
 
@@ -49,7 +49,7 @@ export default function AboutPage() {
                   <CardTitle className="font-serif italic">Pain Point</CardTitle>
                 </div>
                 <CardDescription>
-                  Finding activities shouldn't feel like endless scrolling
+                  Finding activities should not feel like endless scrolling
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -115,12 +115,12 @@ export default function AboutPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p>
-                  VibePlan is an AI-powered activity recommendation tool designed specifically for Singapore. 
-                  We help you discover the perfect activities, from casual hangouts to special date nights, 
+                  VibePlan is a frontend activity planning prototype designed specifically for Singapore.
+                  It helps you discover activities, casual hangouts, and date-night ideas using local mock data
                   tailored to your preferences, budget, and vibe.
                 </p>
                 <p>
-                  Whether you're a broke student looking for free activities or an atas boss ready to splurge, 
+                  Whether you are a broke student looking for free activities or an atas boss ready to splurge,
                   VibePlan has something for everyone.
                 </p>
               </CardContent>
@@ -155,7 +155,7 @@ export default function AboutPage() {
                     <div>
                       <h3 className="font-semibold mb-1">Describe Your Vibe</h3>
                       <p className="text-sm text-muted-foreground">
-                        Use natural language to describe what you're looking for. Our AI understands context and nuance.
+                        Use natural language to describe what you are looking for. The demo turns your prompt into a ready-to-view mock itinerary.
                       </p>
                     </div>
                   </div>
@@ -165,9 +165,9 @@ export default function AboutPage() {
                       3
                     </div>
                     <div>
-                      <h3 className="font-semibold mb-1">Get Personalized Recommendations</h3>
+                      <h3 className="font-semibold mb-1">Get a Mock Itinerary</h3>
                       <p className="text-sm text-muted-foreground">
-                        Our AI analyzes your input and curates a list of activities perfect for your weekend plans.
+                        The frontend loads a realistic sample plan that shows the results, timeline, and map experience.
                       </p>
                     </div>
                   </div>
@@ -185,8 +185,8 @@ export default function AboutPage() {
               </CardHeader>
               <CardContent>
                 <p>
-                  We believe everyone deserves to make the most of their weekends. VibePlan was created to 
-                  eliminate the "What should we do this weekend?" dilemma and help Singaporeans discover 
+                  We believe everyone deserves to make the most of their weekends. VibePlan was created to
+                  eliminate the weekend planning dilemma and help Singaporeans discover
                   both hidden gems and popular spots that match their unique preferences.
                 </p>
               </CardContent>
@@ -204,7 +204,7 @@ export default function AboutPage() {
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">✓</span>
-                    <span>AI-powered personalized recommendations</span>
+                    <span>Frontend-only mock itinerary flow</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">✓</span>
@@ -212,7 +212,7 @@ export default function AboutPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">✓</span>
-                    <span>Curated database of Singapore activities</span>
+                    <span>Curated local sample activities for Singapore</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">✓</span>
@@ -224,7 +224,7 @@ export default function AboutPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">✓</span>
-                    <span>Search history to revisit past recommendations</span>
+                    <span>Saved activities using browser localStorage</span>
                   </li>
                 </ul>
               </CardContent>
@@ -234,7 +234,7 @@ export default function AboutPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="font-serif italic">Built With</CardTitle>
-                <CardDescription>Cutting-edge AI and web technologies</CardDescription>
+                <CardDescription>Frontend technologies for the local mock experience</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -252,37 +252,9 @@ export default function AboutPage() {
                 </div>
                 
                 <div>
-                  <h4 className="font-semibold mb-2 text-primary">AI & Machine Learning</h4>
+                  <h4 className="font-semibold mb-2 text-primary">Frontend State & Data</h4>
                   <div className="flex flex-wrap gap-2">
-                    {['OpenAI GPT', 'ChromaDB', 'RAG System', 'Vector Search'].map((tech) => (
-                      <span
-                        key={tech}
-                        className="px-3 py-1 bg-secondary rounded-full text-sm font-medium"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold mb-2 text-primary">Data & APIs</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {['Supabase', 'Google Maps API', 'Exa API', 'Telegram API'].map((tech) => (
-                      <span
-                        key={tech}
-                        className="px-3 py-1 bg-secondary rounded-full text-sm font-medium"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold mb-2 text-primary">Automation & Scraping</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {['Selenium', 'Telethon', 'Web Scraping', 'Social Monitoring'].map((tech) => (
+                    {['Local Mock Data', 'localStorage', 'Static Assets', 'Client-side Routing'].map((tech) => (
                       <span
                         key={tech}
                         className="px-3 py-1 bg-secondary rounded-full text-sm font-medium"
@@ -300,4 +272,3 @@ export default function AboutPage() {
     </div>
   )
 }
-

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Compass, Heart, History, Menu, Search, User } from "lucide-react";
+import { Heart, Menu, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,42 +15,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import IconLogo from "@/app/assets/Icon Logo.png";
 import FullLogo from "@/app/assets/Full Logo.png";
-import { mockPublicItineraries } from "@/lib/mock-api-data";
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffWeeks = Math.floor(diffDays / 7);
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffWeeks === 1) return "1 week ago";
-  return `${diffWeeks} weeks ago`;
-}
 
 const primaryLinks = [
   { href: "/", label: "Discover", icon: Search },
-  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/saved", label: "Saved", icon: Heart },
 ];
-
-const recentItems = mockPublicItineraries.slice(0, 3);
-
-function getResultsHref(item: (typeof mockPublicItineraries)[number]) {
-  return `/results?results=${encodeURIComponent(
-    JSON.stringify(item.itinerary_data)
-  )}`;
-}
 
 function LogoLink({ onClick }: { onClick?: () => void }) {
   return (
@@ -79,8 +50,6 @@ function LogoLink({ onClick }: { onClick?: () => void }) {
 
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopHistoryOpen, setDesktopHistoryOpen] = useState(false);
-  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(true);
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
@@ -111,55 +80,6 @@ export function Sidebar() {
             );
           })}
 
-          <div className="relative">
-            <Button
-              type="button"
-              variant={isActive("/history") ? "default" : "ghost"}
-              className="h-10 rounded-full px-4"
-              onClick={() => setDesktopHistoryOpen((open) => !open)}
-            >
-              <History className="mr-2 h-4 w-4" />
-              History
-              <ChevronDown
-                className={cn(
-                  "ml-2 h-4 w-4 transition-transform",
-                  desktopHistoryOpen && "rotate-180"
-                )}
-              />
-            </Button>
-
-            {desktopHistoryOpen && (
-              <div className="absolute left-1/2 top-12 w-80 -translate-x-1/2 rounded-lg border border-primary/15 bg-white p-2 shadow-[0_18px_60px_rgba(15,23,42,0.16)]">
-                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  Mock recent searches
-                </div>
-                <div className="space-y-1">
-                  {recentItems.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={getResultsHref(item)}
-                      onClick={() => setDesktopHistoryOpen(false)}
-                      className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-primary/5"
-                    >
-                      <p className="truncate font-medium">
-                        {item.query || "Untitled itinerary"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatTimeAgo(item.created_at)}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
-                <Link
-                  href="/history"
-                  onClick={() => setDesktopHistoryOpen(false)}
-                  className="mt-1 block rounded-md px-3 py-2 text-sm font-medium text-primary underline underline-offset-4 hover:bg-primary/5"
-                >
-                  View all history
-                </Link>
-              </div>
-            )}
-          </div>
         </nav>
 
         <div className="hidden items-center gap-1 md:flex">
@@ -190,7 +110,7 @@ export function Sidebar() {
                 <LogoLink onClick={() => setMobileOpen(false)} />
               </SheetTitle>
               <SheetDescription className="sr-only">
-                Main navigation links and mock recent history.
+                Main navigation links.
               </SheetDescription>
             </SheetHeader>
 
@@ -211,53 +131,6 @@ export function Sidebar() {
                   </Link>
                 );
               })}
-
-              <Collapsible
-                open={mobileHistoryOpen}
-                onOpenChange={setMobileHistoryOpen}
-              >
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant={isActive("/history") ? "default" : "ghost"}
-                    className="w-full justify-between rounded-full"
-                  >
-                    <span className="flex items-center">
-                      <History className="mr-2 h-5 w-5" />
-                      History
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 transition-transform",
-                        mobileHistoryOpen && "rotate-180"
-                      )}
-                    />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2 space-y-1 border-l border-primary/15 pl-4">
-                  {recentItems.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={getResultsHref(item)}
-                      onClick={() => setMobileOpen(false)}
-                      className="block rounded-md px-3 py-2 text-sm transition-colors hover:bg-primary/5"
-                    >
-                      <p className="truncate font-medium">
-                        {item.query || "Untitled itinerary"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatTimeAgo(item.created_at)}
-                      </p>
-                    </Link>
-                  ))}
-                  <Link
-                    href="/history"
-                    onClick={() => setMobileOpen(false)}
-                    className="block rounded-md px-3 py-2 text-sm font-medium text-primary underline underline-offset-4"
-                  >
-                    View all history
-                  </Link>
-                </CollapsibleContent>
-              </Collapsible>
 
               <div className="my-3 h-px bg-primary/15" />
 

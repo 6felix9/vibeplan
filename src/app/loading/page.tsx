@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Database, MapPin, Search } from "lucide-react"
 import Image from "next/image"
 import TelegramLogo from "@/app/assets/telegram-app-48.png"
+import { mockItinerary } from "@/lib/mock-api-data"
 
 function LoadingContent() {
   const router = useRouter()
@@ -29,19 +30,8 @@ function LoadingContent() {
       }
 
       try {
-        // Call API
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: data,
-        })
-
-        const result = await response.json()
-        
         const params = new URLSearchParams()
-        params.set('results', JSON.stringify(result))
+        params.set('results', JSON.stringify(mockItinerary))
         
         router.push(`/results?${params.toString()}`)
       } catch (error) {

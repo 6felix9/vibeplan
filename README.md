@@ -1,15 +1,14 @@
 # VibePlan
 
 VibePlan is a Next.js App Router application for planning Singapore activity
-itineraries. This cleanup keeps the frontend experience and mock data only while
-the data aggregation backend is rebuilt.
+itineraries. This repo is frontend-only and uses local mock data.
 
 ## Project Structure
 
-- `src/app/` - pages and mock API routes, including `/api/generate`,
-  `/api/explore`, loading, results, history, and profile.
+- `src/app/` - frontend routes for discover, loading, results, saved, about,
+  and profile.
 - `src/components/` - reusable UI and feature components.
-- `src/lib/mock-api-data.ts` - centralized mock itinerary data.
+- `src/lib/` - local mock data and browser-only utilities.
 - `src/app/assets/` and `public/` - static assets used by the UI.
 
 ## Local Setup
@@ -26,8 +25,7 @@ Run the Next.js app:
 npm run dev
 ```
 
-No backend API keys, database credentials, or map service keys are required for
-the mock app.
+No service keys, credentials, or map provider keys are required for the mock app.
 
 ## Useful Commands
 

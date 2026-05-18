@@ -4,7 +4,7 @@
 
 This is a Next.js App Router application. Main source code lives in `src/`.
 
-- `src/app/`: pages and mock API routes, including `/api/generate`, `/api/explore`, loading, results, history, and profile routes.
+- `src/app/`: frontend pages, including loading, results, saved, about, and profile routes.
 - `src/components/`: reusable UI and feature components. Shared primitives are in `src/components/ui/`.
 - `src/lib/`: mock data and utilities.
 - `public/`: static assets served by Next.js.
@@ -28,16 +28,16 @@ Name React components in PascalCase, hooks as `useSomething`, utility files in c
 
 ## Testing Guidelines
 
-No automated test framework is currently configured in `package.json`. Before submitting changes, run `npm run lint` and, for behavior changes, manually verify the affected flow in the browser. For itinerary generation changes, verify `/loading`, `/api/generate`, `/results?results=...`, and mock history display.
+No automated test framework is currently configured in `package.json`. Before submitting changes, run `npm run lint` and, for behavior changes, manually verify the affected flow in the browser. For itinerary generation changes, verify `/loading` and `/results?results=...`.
 
 When adding tests, prefer React Testing Library for components and focused API route/unit tests for data transformation logic.
 
 ## Commit & Pull Request Guidelines
 
-Recent commits use short, direct messages such as `Clean up`, `add display user name`, and `update ui bugs`. Keep commits concise and imperative, for example: `simplify mock history` or `add profile loading state`.
+Recent commits use short, direct messages such as `Clean up`, `add display user name`, and `update ui bugs`. Keep commits concise and imperative, for example: `simplify mock data` or `add profile loading state`.
 
 Pull requests should include a short summary, affected routes/components, required environment variables, manual verification steps, and screenshots for UI changes. Link related issues when available.
 
 ## Security & Configuration Tips
 
-Do not commit `.env.local` or secrets. The current mock-only app does not require backend API keys or database credentials.
+Do not commit `.env.local` or secrets. The current mock-only app does not require service keys or database credentials.

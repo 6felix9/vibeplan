@@ -45,7 +45,7 @@ export default function ProfilePage() {
                 Demo Account
               </CardTitle>
               <CardDescription>
-                Static profile details while backend services are being rebuilt
+                Static profile details for the frontend mock app
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

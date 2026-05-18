@@ -65,7 +65,7 @@ function ResultsContent({ itinerary }: { itinerary: Itinerary }) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push("/history")}
+              onClick={() => router.push("/")}
               className="shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />

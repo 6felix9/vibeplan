@@ -4,7 +4,7 @@ export const mockItinerary = {
     intro:
       "Ease into the day with a compact route that keeps travel time low while mixing food, city views, and a relaxed evening stop.",
     description:
-      "This mock itinerary is designed for local development while live API integrations are paused. It uses realistic Singapore venues, prices, coordinates, tags, and source links so the results, map, timeline, and explore pages can be exercised end to end.",
+      "This mock itinerary uses realistic Singapore venues, prices, coordinates, tags, and source links so the frontend results, map, and timeline can be exercised end to end.",
     budget: "Around S$55-S$85 per person before optional drinks",
     duration: "12:00 PM - 9:30 PM",
     area: "Tiong Bahru, Marina Bay, Chinatown, and Ann Siang",
@@ -95,48 +95,3 @@ export const mockItinerary = {
     },
   ],
 };
-
-export const mockPublicItineraries = [
-  {
-    id: "mock-itinerary-1",
-    query: "Chill food and views day in Singapore",
-    created_at: new Date().toISOString(),
-    activities: ["Food", "Sightseeing", "Nightlife"],
-    budget: 2,
-    num_pax: "2",
-    mbti: "ENFP",
-    spicy: true,
-    itinerary_data: mockItinerary,
-    user_id: "mock-user-1",
-    user_profile: {
-      user_id: "mock-user-1",
-      full_name: "Mock User",
-      name: "Mock User",
-    },
-  },
-  {
-    id: "mock-itinerary-2",
-    query: "Budget-friendly museum and hawker plan",
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    activities: ["Culture", "Food", "Walking"],
-    budget: 1,
-    num_pax: "4",
-    mbti: "INFJ",
-    spicy: false,
-    itinerary_data: {
-      ...mockItinerary,
-      title: "Budget Museum, Waterfront, and Hawker Evening",
-      summary: {
-        ...mockItinerary.summary,
-        budget: "Around S$35-S$55 per person",
-        perks: "Mostly free movement, one paid culture stop, and affordable dinner options",
-      },
-    },
-    user_id: "mock-user-2",
-    user_profile: {
-      user_id: "mock-user-2",
-      full_name: "Demo Planner",
-      name: "Demo Planner",
-    },
-  },
-];
