@@ -56,3 +56,6 @@ tele_extracted*.json
 
 # project documentation
 CLAUDE.md
+
+# Antigravity CLI
+.antigravitycli/

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Heart, Menu, Search, User } from "lucide-react";
+import { Heart, History, Menu, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import FullLogo from "@/app/assets/Full Logo.png";
 const primaryLinks = [
   { href: "/", label: "Discover", icon: Search },
   { href: "/saved", label: "Saved", icon: Heart },
+  { href: "/history", label: "History", icon: History },
 ];
 
 function LogoLink({ onClick }: { onClick?: () => void }) {
