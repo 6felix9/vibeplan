@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -24,10 +24,10 @@ import {
 } from "@/components/ui/sheet";
 import {
   homeActivities,
-  homeActivityCategories,
   type HomeActivity,
 } from "@/lib/homeActivities";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
 
 function buildLoadingHref(query: string) {
   const searchParams = {
@@ -42,6 +42,42 @@ function buildLoadingHref(query: string) {
   return `/loading?${params.toString()}`;
 }
 
+// Helper to map DB row to HomeActivity
+const mapDbDealToActivity = (deal: any, index: number): HomeActivity => {
+  const imageClasses = ["h-28 sm:h-48", "h-32 sm:h-60", "h-24 sm:h-44", "h-[7.5rem] sm:h-56", "h-36 sm:h-72", "h-24 sm:h-40"];
+  const noteClasses = ["rotate-[-1.5deg]", "rotate-[1deg]", "rotate-[0.5deg]", "rotate-[-0.5deg]", "rotate-[1.5deg]", "rotate-[-1deg]", "rotate-[0.75deg]", "rotate-[-1.25deg]"];
+  
+  const imageClass = imageClasses[index % imageClasses.length];
+  const noteClass = noteClasses[index % noteClasses.length];
+  
+  const defaultImages: Record<string, string> = {
+    "Food": "https://images.unsplash.com/photo-1557872943-16a5ac26437e?auto=format&fit=crop&w=900&q=80",
+    "Sports": "https://images.unsplash.com/photo-1522163182402-834f871fd851?auto=format&fit=crop&w=900&q=80",
+    "Event": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80",
+    "Culture": "https://images.unsplash.com/photo-1545987796-200677ee1011?auto=format&fit=crop&w=900&q=80",
+    "Shopping": "https://images.unsplash.com/photo-1512909006721-3d6018887383?auto=format&fit=crop&w=900&q=80",
+    "Default": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80"
+  };
+  
+  const image = deal.image_url || defaultImages[deal.category] || defaultImages["Default"];
+  
+  return {
+    id: deal.id,
+    title: deal.title,
+    category: deal.category,
+    description: deal.description,
+    image: image,
+    price: deal.price || "Free entry",
+    time: deal.time_info || "Daily",
+    location: deal.location || "Singapore",
+    discount: deal.discount || undefined,
+    vibe: deal.vibe || "Tasty, spontaneous, cozy",
+    tags: deal.tags || [deal.category],
+    imageClass,
+    noteClass,
+  };
+};
+
 export function HomeDiscover() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -49,11 +85,52 @@ export function HomeDiscover() {
   const [selectedActivity, setSelectedActivity] = useState<HomeActivity | null>(
     null
   );
+  const [activities, setActivities] = useState<HomeActivity[]>([]);
+
+  useEffect(() => {
+    async function fetchDeals() {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("placeholder")) {
+        console.warn("Supabase credentials not configured. Using static mock activities.");
+        setActivities(homeActivities);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("deals")
+          .select("*")
+          .order("created_at", { ascending: false });
+          
+        if (error) {
+          console.error("Error fetching deals from Supabase:", error);
+          setActivities([]);
+          return;
+        }
+        
+        if (data) {
+          const mappedDeals = data.map((deal, idx) => mapDbDealToActivity(deal, idx));
+          setActivities(mappedDeals);
+        }
+      } catch (err) {
+        console.error("Failed to connect to Supabase:", err);
+        setActivities([]);
+      }
+    }
+    
+    fetchDeals();
+  }, []);
+
+  const categories = useMemo(() => {
+    const allCats = activities.map((activity) => activity.category);
+    return ["All", ...Array.from(new Set(allCats))];
+  }, [activities]);
 
   const featuredActivities = useMemo(() => {
-    if (selectedCategory === "All") return homeActivities;
-    return homeActivities.filter((activity) => activity.category === selectedCategory);
-  }, [selectedCategory]);
+    if (selectedCategory === "All") return activities;
+    return activities.filter((activity) => activity.category === selectedCategory);
+  }, [selectedCategory, activities]);
 
   const submitSearch = (searchQuery: string) => {
     const trimmedQuery = searchQuery.trim();
@@ -105,7 +182,7 @@ export function HomeDiscover() {
           </form>
 
           <div className="mt-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:mt-6 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
-            {homeActivityCategories.map((category) => {
+            {categories.map((category) => {
               const isSelected = selectedCategory === category;
 
               return (
@@ -143,14 +220,14 @@ export function HomeDiscover() {
             </p>
           </div>
 
-          <div className="columns-2 gap-2.5 sm:columns-3 sm:gap-4 xl:columns-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 items-start">
             {featuredActivities.map((activity, index) => (
               <button
                 key={activity.id}
                 type="button"
                 onClick={() => setSelectedActivity(activity)}
                 className={cn(
-                  "group mb-2.5 w-full break-inside-avoid rounded-lg border border-red-100 bg-[#fffdf8] p-1.5 text-left shadow-[0_10px_24px_rgba(93,28,28,0.1)] transition-all duration-300 hover:-translate-y-1 hover:rotate-0 hover:border-red-300 hover:shadow-[0_18px_44px_rgba(93,28,28,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 sm:mb-4 sm:p-2.5",
+                  "group w-full rounded-lg border border-red-100 bg-[#fffdf8] p-1.5 text-left shadow-[0_10px_24px_rgba(93,28,28,0.1)] transition-all duration-300 hover:-translate-y-1 hover:rotate-0 hover:border-red-300 hover:shadow-[0_18px_44px_rgba(93,28,28,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 sm:p-2.5",
                   activity.noteClass
                 )}
               >

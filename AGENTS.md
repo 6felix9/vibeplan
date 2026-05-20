@@ -18,7 +18,7 @@ There is no dedicated `tests/` directory yet. Add tests near the code they cover
 - `npm run start`: run the production build.
 - `npm run lint`: run ESLint over the repository.
 
-Local generation uses mock data only and requires only the Next.js server.
+The app supports fetching live activities and deals from Supabase. If Supabase credentials are not configured in `.env.local`, it gracefully falls back to static mock data.
 
 ## Coding Style & Naming Conventions
 
@@ -40,4 +40,4 @@ Pull requests should include a short summary, affected routes/components, requir
 
 ## Security & Configuration Tips
 
-Do not commit `.env.local` or secrets. The current mock-only app does not require service keys or database credentials.
+Do not commit `.env.local` or secrets. The app uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for client-side database queries, and `SUPABASE_SERVICE_ROLE_KEY` for server-side itinerary repository operations. If these are omitted, the app gracefully falls back to mock data.

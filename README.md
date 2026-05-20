@@ -1,7 +1,7 @@
 # VibePlan
 
 VibePlan is a Next.js App Router application for planning Singapore activity
-itineraries. This repo is frontend-only and uses local mock data.
+itineraries. It supports pulling live deals and user-saved activities from Supabase when configured, or falling back to local mock data.
 
 ## Project Structure
 
@@ -25,7 +25,7 @@ Run the Next.js app:
 npm run dev
 ```
 
-No service keys, credentials, or map provider keys are required for the mock app.
+To run with live database data, copy `.env.example` to `.env.local` and add your Supabase credentials. If left blank, the app will run entirely using local mock data.
 
 ## Useful Commands
 
