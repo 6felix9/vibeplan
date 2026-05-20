@@ -16,8 +16,10 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { SavedActivitiesSkeleton } from "@/components/SavedActivitiesSkeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildActivityLoadingHref,
   buildPlanAroundQuery,
@@ -26,7 +28,7 @@ import { useSavedActivities } from "@/lib/hooks/useSavedActivities";
 
 export default function SavedPage() {
   const router = useRouter();
-  const { savedActivities, toggleSaved } = useSavedActivities();
+  const { savedActivities, isLoading, toggleSaved } = useSavedActivities();
 
   const planAroundActivity = (activity: (typeof savedActivities)[number]) => {
     router.push(buildActivityLoadingHref(buildPlanAroundQuery(activity)));
@@ -49,13 +51,19 @@ export default function SavedPage() {
                 Your saved activities
               </h1>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              {savedActivities.length} saved pick
-              {savedActivities.length === 1 ? "" : "s"} from Discover.
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-4 w-52" />
+            ) : (
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+                {savedActivities.length} saved pick
+                {savedActivities.length === 1 ? "" : "s"} from Discover.
+              </p>
+            )}
           </div>
 
-          {savedActivities.length > 0 ? (
+          {isLoading ? (
+            <SavedActivitiesSkeleton />
+          ) : savedActivities.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {savedActivities.map((activity) => (
                 <article

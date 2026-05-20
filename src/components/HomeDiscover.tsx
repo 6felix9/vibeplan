@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CalendarDays,
   Clock,
+  Heart,
   MapPin,
   Search,
   Sparkles,
@@ -22,8 +23,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { DiscoverSkeleton } from "@/components/DiscoverSkeleton";
 import { type HomeActivity } from "@/lib/homeActivities";
 import { cn } from "@/lib/utils";
+import { useSavedActivities } from "@/lib/hooks/useSavedActivities";
 
 const CATEGORY_KEY = "vibeplan:discover-category";
 
@@ -40,6 +43,21 @@ function buildLoadingHref(query: string) {
   return `/loading?${params.toString()}`;
 }
 
+function shuffleActivities(activities: HomeActivity[]) {
+  const shuffled = [...activities];
+
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const randomValue =
+      typeof crypto !== "undefined"
+        ? crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32
+        : Math.random();
+    const j = Math.floor(randomValue * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+}
+
 export function HomeDiscover({ initialActivities }: { initialActivities: HomeActivity[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -47,21 +65,31 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
   const [selectedActivity, setSelectedActivity] = useState<HomeActivity | null>(
     null
   );
-  const [activities] = useState(initialActivities);
+  const [activities, setActivities] = useState<HomeActivity[] | null>(null);
+  const { isSaved, toggleSaved } = useSavedActivities();
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      setActivities(shuffleActivities(initialActivities));
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [initialActivities]);
 
   const categories = useMemo(() => {
-    const allCats = activities.map((activity) => activity.category);
+    const allCats = initialActivities.map((activity) => activity.category);
     return ["All", ...Array.from(new Set(allCats))];
-  }, [activities]);
+  }, [initialActivities]);
 
   useEffect(() => {
     const stored = localStorage.getItem(CATEGORY_KEY);
     if (!stored) return;
-    const validCats = new Set(activities.map((a) => a.category));
+    const validCats = new Set(initialActivities.map((a) => a.category));
     if (stored === "All" || validCats.has(stored)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCategory(stored);
     }
-  }, [activities]);
+  }, [initialActivities]);
 
   const selectCategory = (category: string) => {
     setSelectedCategory(category);
@@ -69,6 +97,7 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
   };
 
   const featuredActivities = useMemo(() => {
+    if (!activities) return [];
     if (selectedCategory === "All") return activities;
     return activities.filter((activity) => activity.category === selectedCategory);
   }, [selectedCategory, activities]);
@@ -146,6 +175,7 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
           </div>
         </section>
 
+        {activities ? (
         <section className="mx-auto max-w-7xl">
           <div className="mb-4 flex flex-col gap-2 px-1.5 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:px-0">
             <div>
@@ -163,12 +193,19 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
 
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 items-start">
             {featuredActivities.map((activity, index) => (
-              <button
+              <div
                 key={activity.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedActivity(activity)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedActivity(activity);
+                  }
+                }}
                 className={cn(
-                  "group w-full rounded-lg border border-red-100 bg-[#fffdf8] p-1.5 text-left shadow-[0_10px_24px_rgba(93,28,28,0.1)] transition-all duration-300 hover:-translate-y-1 hover:rotate-0 hover:border-red-300 hover:shadow-[0_18px_44px_rgba(93,28,28,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 sm:p-2.5",
+                  "group w-full rounded-lg border border-red-100 bg-[#fffdf8] p-1.5 text-left shadow-[0_10px_24px_rgba(93,28,28,0.1)] transition-all duration-300 hover:-translate-y-1 hover:rotate-0 hover:border-red-300 hover:shadow-[0_18px_44px_rgba(93,28,28,0.18)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 sm:p-2.5",
                   activity.noteClass
                 )}
               >
@@ -186,6 +223,17 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
                   <div className="absolute left-2 top-2 rounded-full bg-[#d72d2d] px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
                     {activity.category}
                   </div>
+                  <button
+                    type="button"
+                    aria-label={isSaved(activity.id) ? `Unsave ${activity.title}` : `Save ${activity.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSaved(activity.id);
+                    }}
+                    className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/92 text-[#d72d2d] shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+                  >
+                    <Heart className={cn("h-4 w-4", isSaved(activity.id) ? "fill-current" : "")} />
+                  </button>
                   {activity.discount && (
                     <div className="absolute bottom-2 right-2 max-w-[78%] rounded-full bg-white/92 px-2 py-0.5 text-[9px] font-semibold leading-tight text-[#d72d2d] shadow-sm sm:max-w-none sm:text-[10px]">
                       {activity.discount}
@@ -231,10 +279,13 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
                     ))}
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </section>
+        ) : (
+          <DiscoverSkeleton />
+        )}
       </main>
 
       <Sheet

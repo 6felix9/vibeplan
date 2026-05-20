@@ -2,7 +2,21 @@ import { unstable_cache } from "next/cache";
 import { homeActivities, type HomeActivity } from "@/lib/homeActivities";
 import { supabase } from "@/lib/supabaseClient";
 
-export const mapDbDealToActivity = (deal: any, index: number): HomeActivity => {
+type DbDeal = {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  image_url?: string | null;
+  price?: string | number | null;
+  time_info?: string | null;
+  location?: string | null;
+  discount?: string | null;
+  vibe?: string | null;
+  tags?: string[] | null;
+};
+
+export const mapDbDealToActivity = (deal: DbDeal, index: number): HomeActivity => {
   const imageClasses = ["h-28 sm:h-48", "h-32 sm:h-60", "h-24 sm:h-44", "h-[7.5rem] sm:h-56", "h-36 sm:h-72", "h-24 sm:h-40"];
   const noteClasses = ["rotate-[-1.5deg]", "rotate-[1deg]", "rotate-[0.5deg]", "rotate-[-0.5deg]", "rotate-[1.5deg]", "rotate-[-1deg]", "rotate-[0.75deg]", "rotate-[-1.25deg]"];
 
@@ -26,12 +40,12 @@ export const mapDbDealToActivity = (deal: any, index: number): HomeActivity => {
     category: deal.category,
     description: deal.description,
     image,
-    price: deal.price || "Free entry",
-    time: deal.time_info || "Daily",
-    location: deal.location || "Singapore",
+    price: deal.price == null ? "Free entry" : String(deal.price),
+    time: deal.time_info ?? "Daily",
+    location: deal.location ?? "Singapore",
     discount: deal.discount || undefined,
-    vibe: deal.vibe || "Tasty, spontaneous, cozy",
-    tags: deal.tags || [deal.category],
+    vibe: deal.vibe ?? "Tasty, spontaneous, cozy",
+    tags: deal.tags ?? [deal.category],
     imageClass,
     noteClass,
   };
