@@ -12,9 +12,14 @@ export const ItineraryActivitySchema = z.object({
   description: z.string(),
   location: z.string(),
   price: z.string(),
+  estimated_price: z.number().optional(),
+  original_price: z.number().optional(),
+  savings: z.number().optional(),
   discount: z.string().optional(),
   source_link: z.string().url().optional(),
   source_type: z.string().optional(),
+  source_deal_id: z.string().optional(),
+  category: z.string().optional(),
   tags: z.array(z.string()).optional(),
   coordinates: CoordinatesSchema,
 });
@@ -31,6 +36,15 @@ export const ItinerarySummarySchema = z.object({
 export const ItinerarySchema = z.object({
   title: z.string(),
   summary: ItinerarySummarySchema,
+  matchSignals: z
+    .object({
+      budgetFit: z.string(),
+      areaFit: z.string(),
+      timeFit: z.string(),
+      dealQuality: z.string(),
+      travelEffort: z.string(),
+    })
+    .optional(),
   activities: z.array(ItineraryActivitySchema).min(2).max(6),
 });
 
@@ -81,3 +95,5 @@ export type ItineraryApiResponse = {
   constraints: ItineraryConstraints;
   retrievalMode: "mock" | "supabase";
 };
+
+export type SwapPreference = "similar" | "cheaper" | "closer" | "romantic" | "indoor";

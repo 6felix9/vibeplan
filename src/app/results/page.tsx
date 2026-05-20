@@ -4,16 +4,22 @@ export const dynamic = "force-dynamic";
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Clock, DollarSign, Loader2, Map, MapPin, RefreshCw, Tag } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, DollarSign, Loader2, Map, MapPin, RefreshCw, Sparkles, Tag } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { TimelineActivity } from "@/components/TimelineActivity";
 import { ItineraryMap } from "@/components/ItineraryMap";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mockItinerary } from "@/lib/mock-api-data";
+import {
+  buildMatchSignals,
+  getBudgetTotals,
+} from "@/lib/itinerary/ui";
+import type { SwapPreference } from "@/lib/itinerary/types";
 
 interface Coordinates {
   lat: number;
@@ -27,9 +33,14 @@ interface Activity {
   description: string;
   location: string;
   price: string;
+  estimated_price?: number;
+  original_price?: number;
+  savings?: number;
   discount?: string;
   source_link?: string;
   source_type?: string;
+  source_deal_id?: string;
+  category?: string;
   tags?: string[];
   coordinates: Coordinates;
 }
@@ -46,12 +57,165 @@ interface ItinerarySummary {
 interface Itinerary {
   title: string;
   summary: ItinerarySummary;
+  matchSignals?: {
+    budgetFit: string;
+    areaFit: string;
+    timeFit: string;
+    dealQuality: string;
+    travelEffort: string;
+  };
   activities: Activity[];
 }
 
-function ResultsContent({ itinerary }: { itinerary: Itinerary }) {
+interface ItineraryConstraints {
+  query: string;
+  budget: number | null;
+  area: string | null;
+  date: string | null;
+  vibe: string | null;
+  categories: string[];
+}
+
+interface ResultsPayload {
+  itinerary: Itinerary;
+  constraints?: ItineraryConstraints | null;
+  retrievalMode?: "mock" | "supabase";
+}
+
+function BudgetBreakdown({
+  itinerary,
+  constraints,
+}: {
+  itinerary: Itinerary;
+  constraints?: ItineraryConstraints | null;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const totals = getBudgetTotals(itinerary, constraints?.budget);
+
+  return (
+    <div className="mb-6 rounded-lg border bg-background md:mb-8 overflow-hidden transition-all duration-300">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors text-left focus:outline-none"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center rounded-full bg-primary/5 p-2 text-primary">
+            <DollarSign className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold flex items-center gap-1.5">
+              Budget breakdown
+              {isOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Estimated spend from visible stop prices.
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-semibold text-primary">S${totals.total}</p>
+          <p className="text-xs text-muted-foreground">total estimate</p>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="border-t p-4 bg-muted/[0.02] space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="divide-y">
+            {totals.activities.map(({ activity, estimated, savings }) => (
+              <div key={activity.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{activity.title}</p>
+                  <p className="text-xs text-muted-foreground">{activity.price}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-medium">S${estimated}</p>
+                  {savings > 0 && (
+                    <p className="text-xs text-emerald-700">S${savings} saved</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-2 border-t pt-3 text-sm sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Original value</p>
+              <p className="font-medium">S${totals.originalTotal}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Savings</p>
+              <p className="font-medium text-emerald-700">S${totals.savings}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Budget remaining</p>
+              <p className={`font-medium ${totals.remaining !== null && totals.remaining < 0 ? "text-destructive" : ""}`}>
+                {totals.remaining === null ? "No budget set" : `S${totals.remaining}`}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultsContent({ payload }: { payload: ResultsPayload }) {
   const router = useRouter();
   const [mapOpen, setMapOpen] = useState(false);
+  const [itinerary, setItinerary] = useState(payload.itinerary);
+  const [activeActivityId, setActiveActivityId] = useState<number | null>(null);
+  const [swappingId, setSwappingId] = useState<number | null>(null);
+  const [swapErrors, setSwapErrors] = useState<Record<number, string>>({});
+  const constraints = payload.constraints;
+  const signals = itinerary.matchSignals ?? buildMatchSignals(itinerary, constraints);
+
+  const selectActivity = (activityId: number) => {
+    setActiveActivityId(activityId);
+    document
+      .getElementById(`timeline-activity-${activityId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handleSwap = async (activity: Activity, preference: SwapPreference) => {
+    setSwappingId(activity.id);
+    setSwapErrors((errors) => ({ ...errors, [activity.id]: "" }));
+
+    try {
+      const response = await fetch("/api/itinerary/swap", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          itinerary,
+          constraints,
+          targetActivity: activity,
+          preference,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.itinerary) {
+        throw new Error(data.message || data.error || "No alternative found.");
+      }
+
+      setItinerary(data.itinerary);
+      setActiveActivityId(activity.id);
+    } catch (error) {
+      setSwapErrors((errors) => ({
+        ...errors,
+        [activity.id]:
+          error instanceof Error ? error.message : "No alternative found.",
+      }));
+    } finally {
+      setSwappingId(null);
+    }
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -88,17 +252,35 @@ function ResultsContent({ itinerary }: { itinerary: Itinerary }) {
               </SheetTrigger>
               <SheetContent side="bottom" className="h-[80vh]">
                 <div className="h-full overflow-hidden rounded-lg border">
-                  <ItineraryMap activities={itinerary.activities} />
+                  <ItineraryMap
+                    activities={itinerary.activities}
+                    activeActivityId={activeActivityId}
+                    onMarkerSelect={selectActivity}
+                  />
                 </div>
               </SheetContent>
             </Sheet>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[1fr_minmax(450px,45%)]">
+          <div className="grid grid-cols-1 gap-6 md:gap-8 lg:gap-16 lg:grid-cols-[1fr_minmax(450px,45%)]">
             <div>
               <h1 className="mb-3 font-serif text-xl italic leading-tight sm:mb-4 sm:text-2xl md:mb-6 md:text-4xl lg:text-5xl">
                 {itinerary.title}
               </h1>
+
+              <div className="mb-4 rounded-lg border bg-primary/[0.03] p-3 md:mb-6">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Why this plan works
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.values(signals).map((signal) => (
+                    <Badge key={signal} variant="secondary" className="max-w-full text-xs">
+                      {signal}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
               <Card className="mb-6 md:mb-8">
                 <CardContent className="space-y-3 pt-4 text-sm sm:pt-5 sm:text-base md:space-y-4 md:pt-6">
@@ -159,6 +341,8 @@ function ResultsContent({ itinerary }: { itinerary: Itinerary }) {
                 </CardContent>
               </Card>
 
+              <BudgetBreakdown itinerary={itinerary} constraints={constraints} />
+
               <div className="space-y-0">
                 <h2 className="mb-4 text-lg font-semibold sm:text-xl md:mb-6 md:text-2xl">
                   Your Day Timeline
@@ -168,17 +352,27 @@ function ResultsContent({ itinerary }: { itinerary: Itinerary }) {
                     key={activity.id}
                     activity={activity}
                     isLast={index === itinerary.activities.length - 1}
+                    isActive={activeActivityId === activity.id}
+                    isSwapping={swappingId === activity.id}
+                    swapError={swapErrors[activity.id]}
+                    onHover={setActiveActivityId}
+                    onSelect={setActiveActivityId}
+                    onSwap={handleSwap}
                   />
                 ))}
               </div>
             </div>
 
             <div className="hidden lg:block">
-              <div className="sticky top-8">
-                <Card className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="h-[calc(100vh-8rem)] min-h-[600px]">
-                      <ItineraryMap activities={itinerary.activities} />
+              <div className="fixed bottom-8 right-8 top-24 z-10 w-[min(45vw,720px)]">
+                <Card className="h-full overflow-hidden">
+                  <CardContent className="p-0 h-full">
+                    <div className="h-full">
+                      <ItineraryMap
+                        activities={itinerary.activities}
+                        activeActivityId={activeActivityId}
+                        onMarkerSelect={selectActivity}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -191,23 +385,47 @@ function ResultsContent({ itinerary }: { itinerary: Itinerary }) {
   );
 }
 
+function parseResultsPayload(resultsParam: string | null): ResultsPayload {
+  if (!resultsParam) {
+    return {
+      itinerary: mockItinerary as Itinerary,
+      constraints: null,
+      retrievalMode: "mock",
+    };
+  }
+
+  const parsed = JSON.parse(resultsParam) as ResultsPayload | Itinerary;
+
+  if ("itinerary" in parsed && parsed.itinerary) {
+    return parsed as ResultsPayload;
+  }
+
+  return {
+    itinerary: parsed as Itinerary,
+    constraints: null,
+    retrievalMode: "mock",
+  };
+}
+
 function ResultsPageWrapper() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  let itinerary = mockItinerary as Itinerary;
+  let payload: ResultsPayload = {
+    itinerary: mockItinerary as Itinerary,
+    constraints: null,
+    retrievalMode: "mock",
+  };
   let error: string | null = null;
 
   try {
     const resultsParam = searchParams?.get("results");
-    itinerary = resultsParam
-      ? (JSON.parse(resultsParam) as Itinerary)
-      : (mockItinerary as Itinerary);
+    payload = parseResultsPayload(resultsParam);
   } catch (err) {
     console.error("Error loading itinerary:", err);
     error = "Failed to load itinerary";
   }
 
-  if (error || !itinerary) {
+  if (error || !payload.itinerary) {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
@@ -226,7 +444,7 @@ function ResultsPageWrapper() {
     );
   }
 
-  return <ResultsContent itinerary={itinerary} />;
+  return <ResultsContent payload={payload} />;
 }
 
 export default function ResultsPage() {

@@ -60,7 +60,14 @@ function LoadingContent() {
 
         const generated = await response.json()
         const params = new URLSearchParams()
-        params.set('results', JSON.stringify(generated.itinerary ?? mockItinerary))
+        params.set(
+          'results',
+          JSON.stringify(
+            generated?.itinerary
+              ? generated
+              : { itinerary: mockItinerary, constraints: null, retrievalMode: 'mock' }
+          )
+        )
         
         router.push(`/results?${params.toString()}`)
       } catch (error) {

@@ -10,6 +10,10 @@ import {
   type ItineraryApiResponse,
   type ItineraryConstraints,
 } from "@/lib/itinerary/types";
+import {
+  dealToActivity,
+  withDerivedItineraryMetadata,
+} from "@/lib/itinerary/ui";
 
 const CuratedPlanSchema = z.object({
   title: z.string(),
@@ -81,7 +85,7 @@ function parseCategories(query: string) {
   );
 }
 
-function fallbackConstraints(query: string): ItineraryConstraints {
+export function fallbackConstraints(query: string): ItineraryConstraints {
   return {
     query,
     budget: parseBudget(query),
@@ -90,11 +94,6 @@ function fallbackConstraints(query: string): ItineraryConstraints {
     vibe: parseVibe(query),
     categories: parseCategories(query),
   };
-}
-
-function buildPrice(deal: Deal) {
-  if (!deal.discount_amount) return `S$${deal.price}`;
-  return `S$${Math.max(deal.price - deal.discount_amount, 0)} after promo`;
 }
 
 function dealsToItinerary(query: string, constraints: ItineraryConstraints, deals: Deal[]): Itinerary {
@@ -122,22 +121,7 @@ function dealsToItinerary(query: string, constraints: ItineraryConstraints, deal
       area,
       perks: "Mock RAG retrieval, deal-aware ranking, short hops, and budget control points",
     },
-    activities: selectedDeals.map((deal, index) => ({
-      id: index + 1,
-      time: deal.best_time,
-      title: deal.title,
-      description: deal.description,
-      location: deal.location,
-      price: buildPrice(deal),
-      discount: deal.discount_amount ? `Save S$${deal.discount_amount}` : undefined,
-      source_link: deal.source_url,
-      source_type: "web",
-      tags: deal.tags,
-      coordinates: {
-        lat: deal.lat,
-        lng: deal.lng,
-      },
-    })),
+    activities: selectedDeals.map((deal, index) => dealToActivity(deal, index + 1)),
   };
 }
 
@@ -243,7 +227,10 @@ async function runOpenAiPipeline(
   );
 
   return {
-    itinerary: ItinerarySchema.parse(formatterResult.finalOutput),
+    itinerary: withDerivedItineraryMetadata(
+      ItinerarySchema.parse(formatterResult.finalOutput),
+      constraints
+    ),
     constraints,
     retrievalMode: repository.mode,
   };
@@ -268,7 +255,10 @@ export async function generateItinerary(
     });
 
     return {
-      itinerary: ItinerarySchema.parse(dealsToItinerary(request.query, constraints, deals)),
+      itinerary: withDerivedItineraryMetadata(
+        ItinerarySchema.parse(dealsToItinerary(request.query, constraints, deals)),
+        constraints
+      ),
       constraints,
       retrievalMode: repository.mode,
     };
