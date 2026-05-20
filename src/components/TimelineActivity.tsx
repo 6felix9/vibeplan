@@ -59,10 +59,9 @@ export function TimelineActivity({ activity, isLast = false }: TimelineActivityP
           </h4>
 
           {/* Description */}
-          <div
-            className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-3 sm:mb-4"
-            dangerouslySetInnerHTML={{ __html: activity.description }}
-          />
+          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-3 sm:mb-4">
+            {activity.description}
+          </p>
         </div>
 
         {/* Metadata and Source Link Row */}

@@ -10,6 +10,15 @@ import Image from "next/image"
 import TelegramLogo from "@/app/assets/telegram-app-48.png"
 import { mockItinerary } from "@/lib/mock-api-data"
 
+function getQueryFromData(data: string) {
+  try {
+    const parsed = JSON.parse(data) as { query?: unknown }
+    return typeof parsed.query === "string" ? parsed.query.trim() : ""
+  } catch {
+    return ""
+  }
+}
+
 function LoadingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,13 +39,35 @@ function LoadingContent() {
       }
 
       try {
+        const query = getQueryFromData(data)
+
+        if (!query) {
+          router.push('/')
+          return
+        }
+
+        const response = await fetch('/api/itinerary', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Itinerary generation failed')
+        }
+
+        const generated = await response.json()
         const params = new URLSearchParams()
-        params.set('results', JSON.stringify(mockItinerary))
+        params.set('results', JSON.stringify(generated.itinerary ?? mockItinerary))
         
         router.push(`/results?${params.toString()}`)
       } catch (error) {
         console.error('Error generating activities:', error)
-        router.push('/')
+        const params = new URLSearchParams()
+        params.set('results', JSON.stringify(mockItinerary))
+        router.push(`/results?${params.toString()}`)
       }
     }
 
@@ -50,7 +81,7 @@ function LoadingContent() {
       icon: <Search className="h-6 w-6 text-primary" />,
       text: (
         <>
-          Reading the local mock itinerary data
+          Parsing your plan and constraints
         </>
       ),
       delay: "0s"
@@ -63,7 +94,7 @@ function LoadingContent() {
       ),
       text: (
         <>
-          Loading mock Telegram-style deals
+          Searching matching deal candidates
         </>
       ),
       delay: "0.8s"
@@ -76,7 +107,7 @@ function LoadingContent() {
       ),
       text: (
         <>
-          Loading mock social recommendations
+          Ranking route and time fit
         </>
       ),
       delay: "1.6s"
@@ -85,7 +116,7 @@ function LoadingContent() {
       icon: <Database className="h-6 w-6 text-primary" />,
       text: (
         <>
-          Assembling the demo activity timeline
+          Formatting the itinerary timeline
         </>
       ),
       delay: "2.4s"
@@ -94,7 +125,7 @@ function LoadingContent() {
       icon: <MapPin className="h-6 w-6 text-primary" />,
       text: (
         <>
-          Plotting mock coordinates on the local map
+          Plotting coordinates on the map
         </>
       ),
       delay: "3.2s"
@@ -110,7 +141,7 @@ function LoadingContent() {
             Let me cook...
           </h1>
           <p className="text-muted-foreground text-lg">
-            Preparing a mock itinerary
+            Preparing your itinerary
           </p>
         </div>
 
