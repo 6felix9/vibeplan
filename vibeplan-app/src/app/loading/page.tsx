@@ -58,6 +58,14 @@ function LoadingContent() {
         })
 
         if (!response.ok) {
+          if (response.status === 429) {
+            const body = await response.json().catch(() => ({})) as { resetAt?: string }
+            const params = new URLSearchParams()
+            params.set('errorType', 'rateLimit')
+            if (body.resetAt) params.set('resetAt', body.resetAt)
+            router.push(`/results?${params.toString()}`)
+            return
+          }
           throw new Error('Itinerary generation failed')
         }
 

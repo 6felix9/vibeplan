@@ -3,12 +3,13 @@ import { z, ZodError } from "zod";
 import { createDealRepository } from "@/lib/itinerary/repository";
 import { generateItinerary } from "@/lib/itinerary/pipeline";
 import { createSupabaseServiceClient } from "@/lib/supabaseServer";
+import { checkItineraryRateLimit } from "@/lib/itinerary/rateLimit";
 
 export const runtime = "nodejs";
 
 const ItineraryRouteRequestSchema = z.object({
   query: z.string().trim().min(1),
-  sessionId: z.string().trim().min(1).optional(),
+  sessionId: z.string().trim().min(1),
 });
 
 export async function POST(request: Request) {
@@ -18,6 +19,18 @@ export async function POST(request: Request) {
       query: body.query,
       hasSessionId: Boolean(body.sessionId),
     }));
+
+    if (body.sessionId) {
+      const supabase = createSupabaseServiceClient();
+      const { allowed, resetAt } = await checkItineraryRateLimit(body.sessionId, supabase);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Daily limit reached", limit: 5, resetAt: resetAt?.toISOString() ?? null },
+          { status: 429 }
+        );
+      }
+    }
+
     const response = await generateItinerary(body, createDealRepository());
 
     if (body.sessionId) {

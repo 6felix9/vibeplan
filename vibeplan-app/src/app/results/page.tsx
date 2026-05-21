@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, DollarSign, Loader2, Map, MapPin, RefreshCw, Sparkles, Tag } from "lucide-react";
+import { AlertCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, DollarSign, Loader2, Map, MapPin, RefreshCw, Sparkles, Tag } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { TimelineActivity } from "@/components/TimelineActivity";
@@ -399,13 +399,82 @@ function parseResultsPayload(resultsParam: string | null): ResultsPayload {
   throw new Error("Invalid itinerary results.");
 }
 
-function ResultsPageWrapper() {
+function ErrorView({
+  message,
+  isRateLimit,
+  resetAt,
+}: {
+  message: string;
+  isRateLimit: boolean;
+  resetAt: Date | null;
+}) {
   const router = useRouter();
+  const timeStr = resetAt?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) ?? null;
+
+  return (
+    <div className="flex min-h-[72vh] items-center justify-center py-12 relative overflow-hidden">
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[480px] w-[480px] rounded-full blur-3xl opacity-[0.18] ${
+          isRateLimit ? "bg-violet-400" : "bg-amber-300"
+        }`}
+      />
+
+      <div className="relative z-10 w-full max-w-[320px] space-y-8 text-center">
+        <div className="relative mx-auto w-fit">
+          <div
+            className={`flex h-24 w-24 items-center justify-center rounded-full border backdrop-blur-sm ${
+              isRateLimit
+                ? "border-violet-200/70 bg-white/75 shadow-[0_4px_28px_rgba(139,92,246,0.13)]"
+                : "border-amber-200/70 bg-white/75 shadow-[0_4px_28px_rgba(251,191,36,0.13)]"
+            }`}
+          >
+            {isRateLimit ? (
+              <Clock className="h-10 w-10 text-violet-400" strokeWidth={1.25} />
+            ) : (
+              <AlertCircle className="h-10 w-10 text-amber-400" strokeWidth={1.25} />
+            )}
+          </div>
+          <div
+            className={`absolute inset-0 scale-[1.18] rounded-full border-2 opacity-25 ${
+              isRateLimit ? "border-violet-300" : "border-amber-300"
+            }`}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <h1 className="font-serif text-[1.75rem] italic leading-snug text-primary">
+            {isRateLimit ? "You've been busy today." : "Couldn't cook this one up."}
+          </h1>
+          <p className="px-2 text-sm leading-relaxed text-muted-foreground">
+            {isRateLimit ? "You've hit today's limit of 5 itineraries." : message}
+          </p>
+          {isRateLimit && timeStr && (
+            <p className="text-xs text-muted-foreground">Resets at {timeStr}</p>
+          )}
+        </div>
+
+        <Button onClick={() => router.push("/")} className="w-full max-w-[180px]">
+          {isRateLimit ? "Back to Home" : "Try Again"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ResultsPageWrapper() {
   const searchParams = useSearchParams();
   let payload: ResultsPayload | null = null;
   let error: string | null = null;
+  const errorType = searchParams?.get("errorType") ?? null;
+  const resetAtParam = searchParams?.get("resetAt") ?? null;
+  const resetAt = resetAtParam ? new Date(resetAtParam) : null;
 
   try {
+    if (errorType) {
+      throw new Error(errorType);
+    }
+
     const explicitError = searchParams?.get("error");
     if (explicitError) {
       throw new Error(explicitError);
@@ -425,12 +494,11 @@ function ResultsPageWrapper() {
         <div className="flex-1">
           <MobileNav />
           <main className="container mx-auto max-w-[1600px] p-4 sm:p-6 md:p-8">
-            <p className="mb-4 text-sm text-red-500 sm:text-base">
-              {error || "Failed to load itinerary"}
-            </p>
-            <Button onClick={() => router.push("/")} className="mt-4">
-              Go Home
-            </Button>
+            <ErrorView
+              message={error ?? "Failed to load itinerary"}
+              isRateLimit={errorType === "rateLimit"}
+              resetAt={resetAt}
+            />
           </main>
         </div>
       </div>
