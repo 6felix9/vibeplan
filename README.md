@@ -31,6 +31,20 @@ vibeplan-app/ (Next.js on Vercel)
     └── scrape.yml             Cron job: scrape + revalidate every 6h
 ```
 
+## Scraped channels
+
+The scraper currently pulls from these Telegram channels (defined in `TARGET_CHANNELS` in `telegram-scraper-python/scrape_to_supabase.py`):
+
+| Channel | Type | Handle / Link |
+|---|---|---|
+| NUS Foodies | Public | `@nusfoodies` |
+| This Counted | Public | `@ThisCounted` |
+| goodlobang | Public | `@goodlobang` |
+| confirmgood | Public | `@confirmgood` |
+| *(private channel)* | Private | `https://t.me/+K0Cj1uIDRDtjM2U1` |
+
+To add a new channel, append to `TARGET_CHANNELS` — bare username for public channels, full `https://t.me/+...` URL for private invite links.
+
 ## Quick start
 
 ### App
