@@ -7,6 +7,22 @@ export interface DealRepository {
   searchDeals(input: DealSearchInput): Promise<Deal[]>;
 }
 
+type DbDeal = Record<string, unknown>;
+
+function toStringValue(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function toNumberValue(value: unknown, fallback: number) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function toTags(value: unknown, fallback: string) {
+  if (!Array.isArray(value)) return fallback ? [fallback] : [];
+  return value.filter((tag): tag is string => typeof tag === "string" && Boolean(tag));
+}
+
 function scoreDeal(deal: Deal, input: DealSearchInput) {
   const query = input.query.toLowerCase();
   const area = input.area?.toLowerCase();
@@ -61,6 +77,8 @@ export class MockDealRepository implements DealRepository {
 export class SupabaseDealRepository implements DealRepository {
   readonly mode = "supabase" as const;
   private readonly client;
+  private readonly embeddingModel =
+    process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
 
   constructor(url: string, serviceRoleKey: string) {
     this.client = createClient(url, serviceRoleKey, {
@@ -70,51 +88,138 @@ export class SupabaseDealRepository implements DealRepository {
     });
   }
 
-  async searchDeals(input: DealSearchInput) {
-    let query = this.client
+  private async createEmbedding(input: DealSearchInput) {
+    if (!process.env.OPENAI_API_KEY) {
+      return null;
+    }
+
+    const text = [
+      input.query,
+      input.area ? `Area: ${input.area}` : "",
+      input.vibe ? `Vibe: ${input.vibe}` : "",
+      input.categories?.length ? `Categories: ${input.categories.join(", ")}` : "",
+      input.max_price ? `Budget: S$${input.max_price}` : "",
+      input.date ? `Date: ${input.date}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: this.embeddingModel,
+        input: text,
+        dimensions: 1536,
+      }),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`OpenAI embedding failed: ${response.status} ${details}`);
+    }
+
+    const data = (await response.json()) as {
+      data?: Array<{ embedding?: number[] }>;
+    };
+
+    return data.data?.[0]?.embedding ?? null;
+  }
+
+  private mapDeal(deal: DbDeal): Deal {
+    const price = toNumberValue(deal.price_amount ?? deal.price, 0);
+    const discount =
+      deal.discount_amount === null || deal.discount_amount === undefined
+        ? null
+        : toNumberValue(deal.discount_amount, 0);
+    const category = toStringValue(deal.category, "Offer");
+
+    return {
+      id: String(deal.id),
+      title: toStringValue(deal.title, "Featured Deal"),
+      description: toStringValue(deal.description, "Telegram deal"),
+      category,
+      source: toStringValue(deal.source, toStringValue(deal.channel_name, "telegram")),
+      source_url: toStringValue(
+        deal.source_url,
+        toStringValue(deal.source_link, "https://t.me/")
+      ),
+      price,
+      discount_amount: discount,
+      location: toStringValue(deal.location, "Singapore"),
+      lat: toNumberValue(deal.lat, 1.3521),
+      lng: toNumberValue(deal.lng, 103.8198),
+      expiry_at:
+        toStringValue(deal.expiry_at) ||
+        new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+      tags: toTags(deal.tags, category),
+      best_time: toStringValue(deal.best_time, toStringValue(deal.time_info, "7:00 PM")),
+    };
+  }
+
+  private async searchDealsByKeyword(input: DealSearchInput) {
+    const { data, error } = await this.client
       .from("deals")
-      .select(
-        "id,title,description,category,source,source_url,price,discount_amount,location,lat,lng,expiry_at"
-      )
-      .gt("expiry_at", new Date().toISOString())
-      .order("refreshed_at", { ascending: false })
-      .limit(input.limit ?? 8);
-
-    if (input.max_price) {
-      query = query.lte("price", input.max_price);
-    }
-
-    if (input.categories?.length) {
-      query = query.in("category", input.categories);
-    }
-
-    if (input.area) {
-      query = query.ilike("location", `%${input.area}%`);
-    }
-
-    const { data, error } = await query;
+      .select("*")
+      .limit(40);
 
     if (error) {
-      throw new Error(`Supabase deal search failed: ${error.message}`);
+      throw new Error(`Supabase fallback deal search failed: ${error.message}`);
     }
 
-    return (data ?? []).map((deal) => ({
-      id: String(deal.id),
-      title: deal.title,
-      description: deal.description,
-      category: deal.category,
-      source: deal.source,
-      source_url: deal.source_url,
-      price: Number(deal.price ?? 0),
-      discount_amount:
-        deal.discount_amount === null ? null : Number(deal.discount_amount ?? 0),
-      location: deal.location,
-      lat: Number(deal.lat),
-      lng: Number(deal.lng),
-      expiry_at: deal.expiry_at,
-      tags: [deal.category].filter(Boolean),
-      best_time: "7:00 PM",
-    }));
+    const now = Date.now();
+    const limit = input.limit ?? 8;
+
+    return (data ?? [])
+      .map((deal) => this.mapDeal(deal))
+      .filter((deal) => new Date(deal.expiry_at).getTime() > now)
+      .filter((deal) => !input.max_price || deal.price <= input.max_price)
+      .filter((deal) => {
+        if (!input.categories?.length) return true;
+        return input.categories.some(
+          (category) => category.toLowerCase() === deal.category.toLowerCase()
+        );
+      })
+      .filter((deal) => {
+        if (!input.area) return true;
+        return deal.location.toLowerCase().includes(input.area.toLowerCase());
+      })
+      .sort((a, b) => scoreDeal(b, input) - scoreDeal(a, input))
+      .slice(0, limit);
+  }
+
+  async searchDeals(input: DealSearchInput) {
+    try {
+      const embedding = await this.createEmbedding(input);
+
+      if (!embedding) {
+        console.warn("OpenAI embedding key missing; using keyword deal search.");
+        return this.searchDealsByKeyword(input);
+      }
+
+      const { data, error } = await this.client.rpc("match_deals", {
+        query_embedding: embedding,
+        match_count: input.limit ?? 8,
+        match_threshold: 0.12,
+        filter_categories: input.categories?.length ? input.categories : null,
+        filter_area: input.area ?? null,
+        filter_max_price: input.max_price ?? null,
+      });
+
+      if (error) {
+        console.warn("Supabase vector deal search failed; using keyword fallback.", error);
+        return this.searchDealsByKeyword(input);
+      }
+
+      const deals = (data ?? []).map((deal: DbDeal) => this.mapDeal(deal));
+      return deals.length ? deals : this.searchDealsByKeyword(input);
+    } catch (error) {
+      console.warn("Semantic deal search failed; using keyword fallback.", error);
+      return this.searchDealsByKeyword(input);
+    }
   }
 }
 

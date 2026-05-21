@@ -17,6 +17,7 @@ There is no dedicated `tests/` directory yet. Add tests near the code they cover
 - `npm run build`: create a production Next.js build.
 - `npm run start`: run the production build.
 - `npm run lint`: run ESLint over the repository.
+- `supabase`: Supabase CLI is available for linked remote project checks and database queries.
 
 The app supports fetching live activities and deals from Supabase. If Supabase credentials are not configured in `.env.local`, it gracefully falls back to static mock data.
 

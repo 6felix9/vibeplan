@@ -1,13 +1,17 @@
 # VibePlan Deployment
 
-This repository runs as a frontend-only mock Next.js app. There are no service
-routes, auth callbacks, database clients, or server services required.
+This repository runs as a Next.js app with optional live Supabase-backed RAG
+routes. Without service environment variables it falls back to mock data.
 
 ## Vercel
 
 1. Connect the repository to Vercel.
 2. Set the framework preset to Next.js.
-3. Deploy without service environment variables.
+3. Add `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_EMBEDDING_MODEL`,
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and
+   `SUPABASE_SERVICE_ROLE_KEY` for live RAG.
+4. Run `rag_migration.sql` in Supabase and backfill deal embeddings before
+   expecting `retrievalMode: "supabase"` results.
 
 ## Verification
 
