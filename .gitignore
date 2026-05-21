@@ -1,0 +1,11 @@
+# Local OS
+.DS_Store
+
+# Claude Code / local tooling
+.agents/
+.antigravitycli/
+.claude/
+skills-lock.json
+
+# Supabase CLI temp files
+supabase/.temp/

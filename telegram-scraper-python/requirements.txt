@@ -3,3 +3,4 @@ python-dotenv
 supabase
 openai
 pydantic
+tenacity
