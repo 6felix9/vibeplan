@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { mockItinerary } from "@/lib/mock-api-data";
 import type { DealRepository } from "@/lib/itinerary/repository";
 import {
   DealSearchInputSchema,
@@ -100,7 +99,7 @@ function dealsToItinerary(query: string, constraints: ItineraryConstraints, deal
   const selectedDeals = deals.length >= 2 ? deals.slice(0, 4) : [];
 
   if (selectedDeals.length < 2) {
-    return mockItinerary as Itinerary;
+    throw new Error("Not enough live deals found to build an itinerary.");
   }
 
   const total = selectedDeals.reduce((sum, deal) => {
@@ -115,11 +114,11 @@ function dealsToItinerary(query: string, constraints: ItineraryConstraints, deal
     summary: {
       intro:
         "This itinerary balances nearby promos, pacing, and simple transitions so the evening feels planned without becoming rigid.",
-      description: `Built from the current mock deal repository for: "${query}". The route prioritizes matching area, budget, category, and expiry constraints before formatting the final timeline.`,
+      description: `Built from live deal retrieval for: "${query}". The route prioritizes matching area, budget, category, and expiry constraints before formatting the final timeline.`,
       budget: `Around S$${total} total before optional extras`,
       duration: `${selectedDeals[0].best_time} - ${selectedDeals[selectedDeals.length - 1].best_time}`,
       area,
-      perks: "Mock RAG retrieval, deal-aware ranking, short hops, and budget control points",
+      perks: "Live RAG retrieval, deal-aware ranking, short hops, and budget control points",
     },
     activities: selectedDeals.map((deal, index) => dealToActivity(deal, index + 1)),
   };
@@ -181,6 +180,17 @@ async function runOpenAiPipeline(
       vibe: constraints.vibe,
       limit: 8,
     });
+  }
+
+  if (retrievedDeals.length < 2) {
+    retrievedDeals = await repository.searchDeals({
+      query: request.query,
+      limit: 8,
+    });
+  }
+
+  if (retrievedDeals.length < 2) {
+    throw new Error("Not enough live deals found to build an itinerary.");
   }
 
   const curationAgent = new Agent({

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Database, MapPin, Search } from "lucide-react"
 import Image from "next/image"
 import TelegramLogo from "@/app/assets/telegram-app-48.png"
-import { mockItinerary } from "@/lib/mock-api-data"
+import { getOrInitializeSessionId } from "@/lib/browserSession"
 
 function getQueryFromData(data: string) {
   try {
@@ -51,7 +51,10 @@ function LoadingContent() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({
+            query,
+            sessionId: getOrInitializeSessionId(),
+          }),
         })
 
         if (!response.ok) {
@@ -59,22 +62,17 @@ function LoadingContent() {
         }
 
         const generated = await response.json()
+        if (!generated?.itinerary) {
+          throw new Error('Itinerary generation returned no itinerary')
+        }
+
         const params = new URLSearchParams()
-        params.set(
-          'results',
-          JSON.stringify(
-            generated?.itinerary
-              ? generated
-              : { itinerary: mockItinerary, constraints: null, retrievalMode: 'mock' }
-          )
-        )
+        params.set('results', JSON.stringify(generated))
         
         router.push(`/results?${params.toString()}`)
       } catch (error) {
         console.error('Error generating activities:', error)
-        const params = new URLSearchParams()
-        params.set('results', JSON.stringify(mockItinerary))
-        router.push(`/results?${params.toString()}`)
+        router.push(`/results?error=${encodeURIComponent('Failed to generate itinerary from live deals.')}`)
       }
     }
 

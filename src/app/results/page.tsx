@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mockItinerary } from "@/lib/mock-api-data";
 import {
   buildMatchSignals,
   getBudgetTotals,
@@ -79,7 +78,8 @@ interface ItineraryConstraints {
 interface ResultsPayload {
   itinerary: Itinerary;
   constraints?: ItineraryConstraints | null;
-  retrievalMode?: "mock" | "supabase";
+  retrievalMode?: "supabase";
+  historyId?: string | null;
 }
 
 function BudgetBreakdown({
@@ -387,45 +387,38 @@ function ResultsContent({ payload }: { payload: ResultsPayload }) {
 
 function parseResultsPayload(resultsParam: string | null): ResultsPayload {
   if (!resultsParam) {
-    return {
-      itinerary: mockItinerary as Itinerary,
-      constraints: null,
-      retrievalMode: "mock",
-    };
+    throw new Error("Missing itinerary results.");
   }
 
-  const parsed = JSON.parse(resultsParam) as ResultsPayload | Itinerary;
+  const parsed = JSON.parse(resultsParam) as Partial<ResultsPayload>;
 
   if ("itinerary" in parsed && parsed.itinerary) {
     return parsed as ResultsPayload;
   }
 
-  return {
-    itinerary: parsed as Itinerary,
-    constraints: null,
-    retrievalMode: "mock",
-  };
+  throw new Error("Invalid itinerary results.");
 }
 
 function ResultsPageWrapper() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  let payload: ResultsPayload = {
-    itinerary: mockItinerary as Itinerary,
-    constraints: null,
-    retrievalMode: "mock",
-  };
+  let payload: ResultsPayload | null = null;
   let error: string | null = null;
 
   try {
+    const explicitError = searchParams?.get("error");
+    if (explicitError) {
+      throw new Error(explicitError);
+    }
+
     const resultsParam = searchParams?.get("results");
     payload = parseResultsPayload(resultsParam);
   } catch (err) {
     console.error("Error loading itinerary:", err);
-    error = "Failed to load itinerary";
+    error = err instanceof Error ? err.message : "Failed to load itinerary";
   }
 
-  if (error || !payload.itinerary) {
+  if (error || !payload?.itinerary) {
     return (
       <div className="flex min-h-screen">
         <Sidebar />

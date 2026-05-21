@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { type HomeActivity } from "@/lib/homeActivities";
 import { supabase } from "@/lib/supabaseClient";
 import { mapDbDealToActivity } from "@/lib/deals";
+import { getOrInitializeSessionId } from "@/lib/browserSession";
 
 const savedActivitiesKey = "vibeplan:saved-activities";
 const savedActivitiesEvent = "vibeplan:saved-activities-change";
@@ -58,16 +59,6 @@ function parseSavedSnapshot(snapshot: string) {
   } catch {
     return [];
   }
-}
-
-function getOrInitializeSessionId() {
-  if (typeof window === "undefined") return "";
-  let sessionId = window.localStorage.getItem("vibeplan:session-id");
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    window.localStorage.setItem("vibeplan:session-id", sessionId);
-  }
-  return sessionId;
 }
 
 export function useSavedActivities() {

@@ -93,7 +93,7 @@ export type DealSearchInput = z.infer<typeof DealSearchInputSchema>;
 export type ItineraryApiResponse = {
   itinerary: Itinerary;
   constraints: ItineraryConstraints;
-  retrievalMode: "mock" | "supabase";
+  retrievalMode: "supabase";
 };
 
 export type SwapPreference = "similar" | "cheaper" | "closer" | "romantic" | "indoor";

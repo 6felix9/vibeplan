@@ -1,9 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { mockDeals } from "@/lib/itinerary/mockDeals";
 import type { Deal, DealSearchInput } from "@/lib/itinerary/types";
 
 export interface DealRepository {
-  readonly mode: "mock" | "supabase";
+  readonly mode: "supabase";
   searchDeals(input: DealSearchInput): Promise<Deal[]>;
 }
 
@@ -51,27 +50,6 @@ function scoreDeal(deal: Deal, input: DealSearchInput) {
   if (deal.discount_amount) score += 1;
 
   return score;
-}
-
-export class MockDealRepository implements DealRepository {
-  readonly mode = "mock" as const;
-
-  async searchDeals(input: DealSearchInput) {
-    const now = Date.now();
-    const limit = input.limit ?? 8;
-
-    return mockDeals
-      .filter((deal) => new Date(deal.expiry_at).getTime() > now)
-      .filter((deal) => !input.max_price || deal.price <= input.max_price)
-      .filter((deal) => {
-        if (!input.categories?.length) return true;
-        return input.categories.some(
-          (category) => category.toLowerCase() === deal.category.toLowerCase()
-        );
-      })
-      .sort((a, b) => scoreDeal(b, input) - scoreDeal(a, input))
-      .slice(0, limit);
-  }
 }
 
 export class SupabaseDealRepository implements DealRepository {
@@ -231,5 +209,5 @@ export function createDealRepository(): DealRepository {
     return new SupabaseDealRepository(supabaseUrl, serviceRoleKey);
   }
 
-  return new MockDealRepository();
+  throw new Error("Supabase service credentials are required for itinerary retrieval.");
 }
