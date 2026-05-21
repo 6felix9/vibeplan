@@ -295,12 +295,14 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
         }}
       >
         <SheetContent
-          side="right"
-          className="w-full overflow-y-auto border-red-100 bg-[#fffdf8] p-0 sm:max-w-xl"
+          side="bottom"
+          className="h-[85vh] w-full overflow-y-auto rounded-t-[20px] border-red-100 bg-[#fffdf8] p-0 sm:h-full sm:max-w-xl sm:rounded-none sm:border-l sm:border-t-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:top-0 sm:data-[state=closed]:slide-out-to-right sm:data-[state=open]:slide-in-from-right"
         >
           {selectedActivity && (
-            <div>
+            <div className="rounded-t-[20px] overflow-hidden sm:rounded-none">
               <div className="relative h-80 w-full bg-red-50">
+                {/* Drag handle indicator for mobile bottom sheet */}
+                <div className="absolute left-1/2 top-2.5 z-10 h-1 w-12 -translate-x-1/2 rounded-full bg-white/40 sm:hidden" />
                 <Image
                   src={selectedActivity.image}
                   alt={selectedActivity.title}
