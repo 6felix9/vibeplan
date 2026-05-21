@@ -41,7 +41,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Copy `.env.example` to `.env.local` and fill in your Supabase credentials. Without them the app falls back to static mock data.
+Copy `.env.example` to `.env.local` and fill in your Supabase and Mapbox credentials. Without Supabase/OpenAI credentials the app falls back to static mock data; without `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` the itinerary map shows a setup fallback.
 
 ## RAG setup
 

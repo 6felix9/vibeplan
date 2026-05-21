@@ -18,6 +18,7 @@ This monorepo deploys two services: the **Next.js app** to Vercel and the **Tele
    | `OPENAI_API_KEY` | yes | For itinerary generation |
    | `OPENAI_MODEL` | optional | Defaults to `gpt-4.1-mini` |
    | `OPENAI_EMBEDDING_MODEL` | optional | Defaults to `text-embedding-3-small` |
+   | `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | yes | Public Mapbox token for itinerary maps |
    | `REVALIDATE_SECRET` | yes | A random secret string — must match the GitHub secret |
 
 4. **(Optional) Skip rebuilds on scraper-only pushes** — under Settings → Git → Ignored Build Step, set the command to:
