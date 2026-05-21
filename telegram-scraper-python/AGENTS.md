@@ -1,6 +1,8 @@
 # telegram-scraper-python
 
-Async Python service that scrapes Singapore deals and activities from Telegram channels, extracts structured data via OpenAI, generates vector embeddings, and writes everything to Supabase.
+Async Python service that scrapes Singapore deals and activities from Telegram channels, extracts structured data via OpenAI, generates vector embeddings, and writes everything to Supabase. Part of the [VibePlan monorepo](../README.md) — runs as a scheduled GitHub Actions cron job (see [`DEPLOYMENT.md`](../DEPLOYMENT.md)).
+
+After a successful run it pings the Next.js app's `/api/revalidate` endpoint to bust the cached discover page so new deals appear immediately.
 
 ## Entry points
 
@@ -8,10 +10,9 @@ Async Python service that scrapes Singapore deals and activities from Telegram c
 |---|---|
 | `python scrape_to_supabase.py` | Main scrape run — fetches 35 messages per channel, processes in parallel |
 | `python scrape_to_supabase.py backfill-embeddings` | Backfills `embedding` column for existing rows missing it |
-| `python scraper.py <channel>` | Lightweight debug scraper — prints messages without writing to DB |
 
 Run from inside the `telegram-scraper-python/` directory with the venv activated:
-```
+```bash
 source venv/bin/activate
 python scrape_to_supabase.py
 ```
@@ -19,15 +20,19 @@ python scrape_to_supabase.py
 ## Required environment variables (`.env`)
 
 ```
-TELEGRAM_API_ID=        # integer, from my.telegram.org
-TELEGRAM_API_HASH=      # string, from my.telegram.org
-SUPABASE_URL=           # or NEXT_PUBLIC_SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY=  # needs insert/update on deals table + storage
-OPENAI_API_KEY=         # required — messages are skipped if missing
-OPENAI_EMBEDDING_MODEL= # optional, defaults to text-embedding-3-small
+TELEGRAM_API_ID=               # integer, from my.telegram.org
+TELEGRAM_API_HASH=             # string, from my.telegram.org
+SUPABASE_URL=                  # or NEXT_PUBLIC_SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY=     # needs insert/update on deals table + storage
+OPENAI_API_KEY=                # required — messages are skipped if missing
+OPENAI_EMBEDDING_MODEL=        # optional, defaults to text-embedding-3-small
+
+# Cache revalidation (optional — skipped silently if unset)
+REVALIDATE_URL=                # https://<app>.vercel.app/api/revalidate
+REVALIDATE_SECRET=             # shared secret matching the Vercel REVALIDATE_SECRET env var
 ```
 
-A Telegram session file (`scraper_session.session`) is created on first run — the CLI will prompt for a phone number and OTP.
+A Telegram session file (`scraper_session.session`) is created on first run — the CLI prompts for a phone number and OTP. In GitHub Actions the session is restored from a base64-encoded secret (see `DEPLOYMENT.md`).
 
 ## Architecture
 
@@ -41,9 +46,10 @@ scrape_channels()
               ├── download + upload photo to Supabase storage (optional)
               ├── enrich_deal_for_rag() → create_embedding()  ← semaphore(5), retry ×3
               └── supabase insert  ← retry ×3 with exponential backoff
+  └── if total_new > 0: trigger_revalidate() → POST /api/revalidate
 ```
 
-OpenAI calls are capped at 5 concurrent requests via `asyncio.Semaphore(5)` to avoid rate limits. If extraction fails after 3 retries the message is skipped (no fallback).
+OpenAI calls are capped at 5 concurrent requests via `asyncio.Semaphore(5)`. If extraction fails after 3 retries the message is skipped.
 
 ## Target channels
 
@@ -94,14 +100,14 @@ Anything OpenAI returns outside this set is coerced to `"Offer"`.
 
 ## Retry behaviour
 
-- **OpenAI extraction & embedding**: `tenacity` — up to 3 attempts, exponential backoff 2s→30s, on `OpenAIError` only
-- **Supabase insert**: manual loop — up to 3 attempts, backoff 2s / 4s, on any exception
+- **OpenAI extraction and embedding**: `tenacity` — up to 3 attempts, exponential backoff 2s→30s, on `OpenAIError` only. Messages are skipped if extraction fails; there is no fallback parser.
+- **Supabase insert**: manual loop — up to 3 attempts, backoff 2s / 4s, on any exception.
 
 ## Common tasks
 
 **Add a new channel**: append to `TARGET_CHANNELS` in `scrape_to_supabase.py`. Use the bare username for public channels, the full `https://t.me/+...` URL for private ones.
 
-**Change how many messages to fetch**: edit the default in `scrape_channels(limit=35)` or pass a value when calling it.
+**Change how many messages to fetch**: edit the default in `scrape_channels(limit=35)`.
 
 **Tune OpenAI concurrency**: change `asyncio.Semaphore(5)` in `scrape_channels()`.
 

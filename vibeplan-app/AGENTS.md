@@ -1,44 +1,48 @@
-# Repository Guidelines
+# VibePlan App — Repository Guidelines
 
-## Project Structure & Module Organization
+This is the Next.js App Router frontend, part of the [VibePlan monorepo](../README.md). The sibling `telegram-scraper-python/` scrapes deals into Supabase; this app reads them and serves itineraries.
 
-This is a Next.js App Router application. Main source code lives in `src/`.
+## Project structure
 
-- `src/app/`: frontend pages, including loading, results, saved, about, and profile routes.
-- `src/components/`: reusable UI and feature components. Shared primitives are in `src/components/ui/`.
-- `src/lib/`: mock data and utilities.
-- `public/`: static assets served by Next.js.
+- `src/app/` — App Router pages: `(home)`, `loading`, `results`, `saved`, `history`, `profile`, `about`.
+- `src/app/api/` — Route handlers: `itinerary/`, `itinerary/swap/`, `history/`, `revalidate/`.
+- `src/components/` — Reusable UI and feature components. Shared primitives are in `src/components/ui/`.
+- `src/lib/` — Data fetching, utilities, and mock data fallbacks.
+- `public/` — Static assets.
 
-There is no dedicated `tests/` directory yet. Add tests near the code they cover or under a future `src/**/*.test.ts(x)` convention.
+## Deals cache and revalidation
 
-## Build, Test, and Development Commands
+Deals are fetched and cached in `src/lib/deals.ts` via `unstable_cache` (tag `"deals"`, 1h TTL). The `POST /api/revalidate` route calls `revalidateTag("deals")` to bust the cache on demand — this is called by the scraper after each run so new deals appear immediately. `REVALIDATE_SECRET` env var is required; the scraper authenticates via `Authorization: Bearer <secret>`.
 
-- `npm run dev`: start the Next.js development server.
-- `npm run build`: create a production Next.js build.
-- `npm run start`: run the production build.
-- `npm run lint`: run ESLint over the repository.
-- `supabase`: Supabase CLI is available for linked remote project checks and database queries.
+## Build, test, and development commands
 
-The app supports fetching live activities and deals from Supabase. If Supabase credentials are not configured in `.env.local`, it gracefully falls back to static mock data.
+- `npm run dev` — start the development server.
+- `npm run build` — production build.
+- `npm run start` — serve the production build.
+- `npm run lint` — run ESLint.
 
-## Coding Style & Naming Conventions
+## Coding style and naming conventions
 
-Use TypeScript for app code. Follow existing formatting: two-space indentation in TS/TSX, semicolons are mixed but acceptable, and imports use the `@/` alias for `src/`.
+Use TypeScript. Two-space indentation, imports use the `@/` alias for `src/`. Name React components in PascalCase, hooks as `useSomething`, utility files in camelCase, route files per Next.js conventions (`page.tsx`, `route.ts`).
 
-Name React components in PascalCase, hooks as `useSomething`, utility files in camelCase, and route files according to Next.js conventions (`page.tsx`, `route.ts`).
+## Testing guidelines
 
-## Testing Guidelines
+No automated test framework is configured. Before submitting changes run `npm run lint`. For behaviour changes, manually verify the affected flow in the browser. For itinerary changes, verify `/loading` → `/results?results=...`.
 
-No automated test framework is currently configured in `package.json`. Before submitting changes, run `npm run lint` and, for behavior changes, manually verify the affected flow in the browser. For itinerary generation changes, verify `/loading` and `/results?results=...`.
+## Commit and pull request guidelines
 
-When adding tests, prefer React Testing Library for components and focused API route/unit tests for data transformation logic.
+Short imperative messages: `add profile loading state`, `fix deals cache`. PRs should include affected routes/components, required env vars, manual verification steps, and screenshots for UI changes.
 
-## Commit & Pull Request Guidelines
+## Security and configuration
 
-Recent commits use short, direct messages such as `Clean up`, `add display user name`, and `update ui bugs`. Keep commits concise and imperative, for example: `simplify mock data` or `add profile loading state`.
+Do not commit `.env.local` or secrets. Required env vars:
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — client-side Supabase reads.
+- `SUPABASE_SERVICE_ROLE_KEY` — server-side itinerary RAG.
+- `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_EMBEDDING_MODEL` — itinerary generation.
+- `REVALIDATE_SECRET` — secret for the `/api/revalidate` cache-bust endpoint.
 
-Pull requests should include a short summary, affected routes/components, required environment variables, manual verification steps, and screenshots for UI changes. Link related issues when available.
+If Supabase/OpenAI credentials are omitted the app falls back to mock data.
 
-## Security & Configuration Tips
+## Deployment
 
-Do not commit `.env.local` or secrets. The app uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for client-side database queries, and `SUPABASE_SERVICE_ROLE_KEY` for server-side itinerary repository operations. If these are omitted, the app gracefully falls back to mock data.
+See the root [`DEPLOYMENT.md`](../DEPLOYMENT.md).

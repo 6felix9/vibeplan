@@ -1,52 +1,66 @@
-# VibePlan
+# VibePlan — Next.js app
 
-VibePlan is a Next.js App Router application for planning Singapore activity
-itineraries. It supports pulling live deals and user-saved activities from Supabase when configured, or falling back to local mock data.
+This directory holds the Next.js App Router frontend. It is the app half of the [VibePlan monorepo](../README.md).
 
-## Project Structure
+Users browse a discover feed of live Singapore deals (scraped by the sibling [`telegram-scraper-python/`](../telegram-scraper-python/AGENTS.md) service) and generate AI-powered activity itineraries via a RAG pipeline backed by Supabase pgvector.
 
-- `src/app/` - frontend routes for discover, loading, results, saved, about,
-  and profile.
-- `src/components/` - reusable UI and feature components.
-- `src/lib/` - local mock data and browser-only utilities.
-- `src/app/assets/` and `public/` - static assets used by the UI.
+## Project structure
 
-## Local Setup
+```
+src/
+├── app/
+│   ├── (home)/page.tsx       Discover home (server component, cached deals)
+│   ├── loading/              Itinerary generation loading page
+│   ├── results/              Itinerary results page
+│   ├── saved/                Saved activities
+│   ├── history/              Past itineraries
+│   ├── profile/              User profile
+│   ├── about/                About page
+│   └── api/
+│       ├── itinerary/        POST — generates an itinerary via RAG
+│       ├── itinerary/swap/   POST — swaps a single itinerary activity
+│       ├── history/          GET — fetches saved itinerary history
+│       └── revalidate/       POST — busts the deals cache on demand
+├── components/               UI components (HomeDiscover, Sidebar, etc.)
+└── lib/
+    ├── deals.ts              Fetches + caches deals (unstable_cache, tag "deals")
+    ├── itinerary/            RAG pipeline (repository, pipeline, types)
+    └── hooks/                Client-side hooks (useSavedActivities)
+```
 
-Install dependencies:
+## Deals cache and revalidation
+
+Deals are cached server-side for 1 hour (`src/lib/deals.ts`, `revalidate: 3600`, tag `"deals"`). When the scraper inserts new deals it calls `POST /api/revalidate`, which calls `revalidateTag("deals")` and causes the next page load to fetch fresh data immediately — no wait for the timer.
+
+`REVALIDATE_SECRET` must be set on the server; the scraper sends it as `Authorization: Bearer <secret>`.
+
+## Local setup
 
 ```bash
 npm install
+npm run dev        # http://localhost:3000
 ```
 
-Run the Next.js app:
+Copy `.env.example` to `.env.local` and fill in your Supabase credentials. Without them the app falls back to static mock data.
 
-```bash
-npm run dev
-```
+## RAG setup
 
-To run with live database data, copy `.env.example` to `.env.local` and add your Supabase credentials. If left blank, the app will run entirely using local mock data.
-
-## Live RAG Setup
-
-Run `rag_migration.sql` in the Supabase SQL Editor to add the pgvector-backed deal search contract. Then run the scraper backfill so existing Telegram rows get embeddings:
+Run `rag_migration.sql` in the Supabase SQL Editor, then backfill embeddings for existing rows:
 
 ```bash
 cd ../telegram-scraper-python
-python3 scrape_to_supabase.py backfill-embeddings
+python scrape_to_supabase.py backfill-embeddings
 ```
 
-New scraper inserts will include canonical price/source/coordinate fields plus `text-embedding-3-small` embeddings by default.
-
-## Useful Commands
+## Commands
 
 ```bash
-npm run build
-npm run lint
-npm run start
+npm run dev     # development server
+npm run build   # production build
+npm run lint    # ESLint
+npm run start   # serve production build
 ```
 
 ## Deployment
 
-Deploy the Next.js app to Vercel or any compatible Node host. See
-`DEPLOYMENT.md` for the current mock-only checklist.
+See the root [`DEPLOYMENT.md`](../DEPLOYMENT.md) for Vercel setup, required env vars, and the full deployment checklist.

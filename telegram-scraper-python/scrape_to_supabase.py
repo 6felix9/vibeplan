@@ -92,9 +92,9 @@ if OPENAI_API_KEY:
         openai_client = OpenAI(api_key=OPENAI_API_KEY)
         print(f"OpenAI parser is configured with {OPENAI_MODEL}. Embeddings use {EMBEDDING_MODEL}.")
     except Exception as e:
-        print(f"OpenAI client could not be initialized. Using fallback parser. Error: {e}")
+        print(f"OpenAI client could not be initialized. Messages will be skipped. Error: {e}")
 else:
-    print("OpenAI API key not found. Using local regex/rule-based fallback parser.")
+    print("OpenAI API key not found. Messages will be skipped (no parser configured).")
 
 # Target channels list (public usernames and invite links)
 TARGET_CHANNELS = [
@@ -259,7 +259,7 @@ def parsed_response_to_deal(response: Any) -> dict | None:
 
         for item in getattr(output, "content", []) or []:
             if getattr(item, "type", None) == "refusal":
-                print(f"OpenAI refused to parse message. Using fallback parser. Refusal: {item.refusal}")
+                print(f"OpenAI refused to parse message. Skipping. Refusal: {item.refusal}")
                 return None
             if getattr(item, "parsed", None):
                 return normalize_deal_data(item.parsed)
@@ -298,7 +298,7 @@ Use the schema descriptions exactly. If a field is not present in the message, r
 
         raise ValueError("OpenAI response did not include parsed structured output.")
     except (json.JSONDecodeError, ValidationError, ValueError) as e:
-        print(f"Invalid OpenAI parser response. Using fallback parser. Error: {e}")
+        print(f"Invalid OpenAI parser response. Skipping. Error: {e}")
         return None
     except OpenAIError as e:
         print(f"Error parsing with OpenAI: {e}")
@@ -306,73 +306,6 @@ Use the schema descriptions exactly. If a field is not present in the message, r
     except Exception as e:
         print(f"Unexpected OpenAI parser error: {e}")
         return None
-
-def extract_deal_fallback(text: str) -> dict:
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-    title = lines[0][:45] if lines else "New Deal/Activity"
-    title = re.sub(r'[^\w\s\-\:\!\(\)\$\&\#]', '', title).strip()
-    if not title:
-        title = "Featured Deal"
-
-    description = " ".join(lines[1:3]) if len(lines) > 1 else "Check out this deal from Telegram!"
-    if len(description) > 150:
-        description = description[:147] + "..."
-
-    # Guess category
-    category = "Offer"
-    text_lower = text.lower()
-    if any(k in text_lower for k in ["eat", "food", "ramen", "bakery", "restaurant", "cafe", "buffet", "coffee", "drink"]):
-        category = "Food"
-    elif any(k in text_lower for k in ["climb", "bouldering", "kayak", "sport", "fitness", "gym"]):
-        category = "Sports"
-    elif any(k in text_lower for k in ["movie", "cinema", "concert", "market", "festival", "bazaar"]):
-        category = "Event"
-    elif any(k in text_lower for k in ["museum", "art", "pottery", "paint", "gallery", "culture"]):
-        category = "Culture"
-    elif any(k in text_lower for k in ["shop", "thrift", "sale", "store", "buy"]):
-        category = "Shopping"
-
-    # Guess price
-    price = "TBD"
-    price_match = re.search(r'(?:S\$|\$)\d+(?:\.\d{2})?(?:\s*(?:-|to)\s*(?:S\$|\$)\d+(?:\.\d{2})?)?', text)
-    if price_match:
-        price = price_match.group(0)
-    elif "free" in text_lower:
-        price = "Free"
-
-    # Guess discount
-    discount = ""
-    discount_match = re.search(r'(\d+%\s*off|1-for-1|buy\s*\d+\s*get\s*\d+|free\s+\w+|\d+\s*for\s*\d+)', text_lower)
-    if discount_match:
-        discount = discount_match.group(0).upper()
-
-    # Time info
-    time_info = "Limited time"
-    time_match = re.search(r'(?:valid|until|till|promo period|ends)\s+([\w\s\d]+)', text_lower)
-    if time_match:
-        time_info = time_match.group(0).strip()
-        if len(time_info) > 30:
-            time_info = time_info[:27] + "..."
-
-    # Location
-    location = "Singapore"
-    loc_match = re.search(r'(?:at|near|venue|location)\s+([\w\s\d]+)', text_lower)
-    if loc_match:
-        location = loc_match.group(1).strip().title()
-        if len(location) > 30:
-            location = location.split(",")[0][:30]
-
-    return {
-        "title": title,
-        "category": category,
-        "description": description,
-        "price": price,
-        "time_info": time_info,
-        "location": location,
-        "discount": discount,
-        "vibe": "Spontaneous, fun, budget-friendly",
-        "tags": [category, "Promo"]
-    }
 
 async def process_invite_link(client, link: str):
     """Joins a private channel using invite link hash if necessary."""
