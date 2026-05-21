@@ -14,6 +14,10 @@ const ItineraryRouteRequestSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = ItineraryRouteRequestSchema.parse(await request.json());
+    console.info("[itinerary:route] request", JSON.stringify({
+      query: body.query,
+      hasSessionId: Boolean(body.sessionId),
+    }));
     const response = await generateItinerary(body, createDealRepository());
 
     if (body.sessionId) {
@@ -37,6 +41,10 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("Failed to save itinerary history:", error);
+      } else {
+        console.info("[itinerary:route] history_saved", JSON.stringify({
+          historyId: data?.id ?? null,
+        }));
       }
 
       return NextResponse.json({

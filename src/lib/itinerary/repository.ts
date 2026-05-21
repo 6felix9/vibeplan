@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { logItineraryStep, summarizeDeals } from "@/lib/itinerary/logging";
 import type { Deal, DealSearchInput } from "@/lib/itinerary/types";
 
 export interface DealRepository {
   readonly mode: "supabase";
-  searchDeals(input: DealSearchInput): Promise<Deal[]>;
+  searchDeals(input: DealSearchInput, debugId?: string): Promise<Deal[]>;
 }
 
 type DbDeal = Record<string, unknown>;
@@ -138,7 +139,7 @@ export class SupabaseDealRepository implements DealRepository {
     };
   }
 
-  private async searchDealsByKeyword(input: DealSearchInput) {
+  private async searchDealsByKeyword(input: DealSearchInput, debugId?: string) {
     const { data, error } = await this.client
       .from("deals")
       .select("*")
@@ -151,7 +152,7 @@ export class SupabaseDealRepository implements DealRepository {
     const now = Date.now();
     const limit = input.limit ?? 8;
 
-    return (data ?? [])
+    const deals = (data ?? [])
       .map((deal) => this.mapDeal(deal))
       .filter((deal) => new Date(deal.expiry_at).getTime() > now)
       .filter((deal) => !input.max_price || deal.price <= input.max_price)
@@ -167,15 +168,31 @@ export class SupabaseDealRepository implements DealRepository {
       })
       .sort((a, b) => scoreDeal(b, input) - scoreDeal(a, input))
       .slice(0, limit);
+
+    if (debugId) {
+      logItineraryStep({ debugId }, "repository.keyword_results", {
+        count: deals.length,
+        topDeals: summarizeDeals(deals),
+      });
+    }
+
+    return deals;
   }
 
-  async searchDeals(input: DealSearchInput) {
+  async searchDeals(input: DealSearchInput, debugId?: string) {
     try {
+      if (debugId) {
+        logItineraryStep({ debugId }, "repository.search_start", {
+          input,
+          embeddingModel: this.embeddingModel,
+        });
+      }
+
       const embedding = await this.createEmbedding(input);
 
       if (!embedding) {
         console.warn("OpenAI embedding key missing; using keyword deal search.");
-        return this.searchDealsByKeyword(input);
+        return this.searchDealsByKeyword(input, debugId);
       }
 
       const { data, error } = await this.client.rpc("match_deals", {
@@ -189,14 +206,40 @@ export class SupabaseDealRepository implements DealRepository {
 
       if (error) {
         console.warn("Supabase vector deal search failed; using keyword fallback.", error);
-        return this.searchDealsByKeyword(input);
+        if (debugId) {
+          logItineraryStep({ debugId }, "repository.vector_error", {
+            message: error.message,
+          });
+        }
+        return this.searchDealsByKeyword(input, debugId);
       }
 
       const deals = (data ?? []).map((deal: DbDeal) => this.mapDeal(deal));
-      return deals.length ? deals : this.searchDealsByKeyword(input);
+      if (debugId) {
+        logItineraryStep({ debugId }, "repository.vector_results", {
+          count: deals.length,
+          topDeals: summarizeDeals(deals),
+        });
+      }
+
+      if (deals.length) {
+        return deals;
+      }
+
+      if (debugId) {
+        logItineraryStep({ debugId }, "repository.keyword_fallback", {
+          reason: "vector returned no deals",
+        });
+      }
+      return this.searchDealsByKeyword(input, debugId);
     } catch (error) {
       console.warn("Semantic deal search failed; using keyword fallback.", error);
-      return this.searchDealsByKeyword(input);
+      if (debugId) {
+        logItineraryStep({ debugId }, "repository.semantic_error", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return this.searchDealsByKeyword(input, debugId);
     }
   }
 }

@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  logItineraryStep,
+  summarizeDeals,
+  type ItineraryLogContext,
+} from "@/lib/itinerary/logging";
 import type { DealRepository } from "@/lib/itinerary/repository";
 import {
   DealSearchInputSchema,
@@ -30,6 +35,10 @@ type ItineraryRequest = z.infer<typeof ItineraryRequestSchema>;
 
 function getModel() {
   return process.env.OPENAI_MODEL || undefined;
+}
+
+function createDebugId() {
+  return `itn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function parseBudget(query: string) {
@@ -127,6 +136,7 @@ function dealsToItinerary(query: string, constraints: ItineraryConstraints, deal
 function makeSearchDealsTool(
   createTool: typeof import("@openai/agents").tool,
   repository: DealRepository,
+  context: ItineraryLogContext,
   onRetrieved: (deals: Deal[]) => void
 ) {
   return createTool({
@@ -135,11 +145,64 @@ function makeSearchDealsTool(
       "Search the deals repository for itinerary candidates using semantic intent plus structured filters.",
     parameters: DealSearchInputSchema,
     async execute(input) {
-      const deals = await repository.searchDeals(input);
+      logItineraryStep(context, "tool.search_deals.start", { input });
+      const deals = await repository.searchDeals(input, context.debugId);
+      logItineraryStep(context, "tool.search_deals.done", {
+        count: deals.length,
+        topDeals: summarizeDeals(deals),
+      });
       onRetrieved(deals);
       return deals;
     },
   });
+}
+
+async function runFormatterAgent(
+  Agent: typeof import("@openai/agents").Agent,
+  run: typeof import("@openai/agents").run,
+  baseAgentConfig: { model?: string },
+  request: ItineraryRequest,
+  constraints: ItineraryConstraints,
+  curated: z.infer<typeof CuratedPlanSchema>,
+  selectedDeals: Deal[],
+  context: ItineraryLogContext,
+  attempt: 1 | 2
+) {
+  const formatterAgent = new Agent({
+    ...baseAgentConfig,
+    name: attempt === 1 ? "Formatter Agent" : "Formatter Agent Retry",
+    instructions:
+      attempt === 1
+        ? "Format the selected deals into the exact itinerary JSON schema. Use clean time blocks, concise descriptions, source links, coordinates, and realistic Singapore-dollar budget text. Include travel-time or pacing guidance inside descriptions when useful."
+        : "Return only a valid itinerary object matching the exact output schema. Include a string title, complete summary object, and 2 to 6 activities. Use only the provided selectedDeals. Do not omit required fields.",
+    outputType: ItinerarySchema,
+  });
+
+  logItineraryStep(context, `formatter.attempt_${attempt}.start`, {
+    selectedDealCount: selectedDeals.length,
+    selectedDeals: summarizeDeals(selectedDeals),
+  });
+
+  const formatterResult = await run(
+    formatterAgent,
+    JSON.stringify({
+      userQuery: request.query,
+      constraints,
+      curated,
+      selectedDeals,
+    }),
+    {
+      maxTurns: 3,
+    }
+  );
+
+  const parsed = ItinerarySchema.parse(formatterResult.finalOutput);
+  logItineraryStep(context, `formatter.attempt_${attempt}.done`, {
+    title: parsed.title,
+    activityCount: parsed.activities.length,
+  });
+
+  return parsed;
 }
 
 async function runOpenAiPipeline(
@@ -147,10 +210,16 @@ async function runOpenAiPipeline(
   repository: DealRepository
 ): Promise<ItineraryApiResponse> {
   const { Agent, run, tool } = await import("@openai/agents");
+  const context = { debugId: createDebugId() };
   let retrievedDeals: Deal[] = [];
   const model = getModel();
   const baseAgentConfig = model ? { model } : {};
-  const searchDealsTool = makeSearchDealsTool(tool, repository, (deals) => {
+  logItineraryStep(context, "pipeline.start", {
+    query: request.query,
+    model: model ?? "sdk default",
+    repositoryMode: repository.mode,
+  });
+  const searchDealsTool = makeSearchDealsTool(tool, repository, context, (deals) => {
     retrievedDeals = deals;
   });
 
@@ -163,14 +232,19 @@ async function runOpenAiPipeline(
     outputType: ItineraryConstraintsSchema,
   });
 
+  logItineraryStep(context, "planner.start");
   const plannerResult = await run(plannerAgent, request.query, {
     maxTurns: 4,
   });
   const constraints = ItineraryConstraintsSchema.parse(
     plannerResult.finalOutput ?? fallbackConstraints(request.query)
   );
+  logItineraryStep(context, "planner.done", { constraints });
 
   if (retrievedDeals.length === 0) {
+    logItineraryStep(context, "retrieval.manual_after_planner", {
+      reason: "planner did not return tool results",
+    });
     retrievedDeals = await repository.searchDeals({
       query: constraints.query || request.query,
       area: constraints.area,
@@ -179,14 +253,17 @@ async function runOpenAiPipeline(
       date: constraints.date,
       vibe: constraints.vibe,
       limit: 8,
-    });
+    }, context.debugId);
   }
 
   if (retrievedDeals.length < 2) {
+    logItineraryStep(context, "retrieval.relaxed_retry", {
+      previousCount: retrievedDeals.length,
+    });
     retrievedDeals = await repository.searchDeals({
       query: request.query,
       limit: 8,
-    });
+    }, context.debugId);
   }
 
   if (retrievedDeals.length < 2) {
@@ -200,6 +277,10 @@ async function runOpenAiPipeline(
       "Rank the candidate deals for the requested itinerary. Select 2 to 5 deal IDs that fit the area, budget, timing, and vibe. Avoid time conflicts and keep the route coherent.",
     outputType: CuratedPlanSchema,
   });
+  logItineraryStep(context, "curation.start", {
+    candidateCount: retrievedDeals.length,
+    candidates: summarizeDeals(retrievedDeals),
+  });
   const curationResult = await run(
     curationAgent,
     JSON.stringify({
@@ -212,33 +293,70 @@ async function runOpenAiPipeline(
     }
   );
   const curated = CuratedPlanSchema.parse(curationResult.finalOutput);
-  const selectedDeals = curated.selectedDealIds
+  const selectedDealsFromCuration = curated.selectedDealIds
     .map((id) => retrievedDeals.find((deal) => deal.id === id))
     .filter((deal): deal is Deal => Boolean(deal));
-
-  const formatterAgent = new Agent({
-    ...baseAgentConfig,
-    name: "Formatter Agent",
-    instructions:
-      "Format the selected deals into the exact itinerary JSON schema. Use clean time blocks, concise descriptions, source links, coordinates, and realistic Singapore-dollar budget text. Include travel-time or pacing guidance inside descriptions when useful.",
-    outputType: ItinerarySchema,
+  const invalidSelectedDealIds = curated.selectedDealIds.filter(
+    (id) => !retrievedDeals.some((deal) => deal.id === id)
+  );
+  const selectedDeals =
+    selectedDealsFromCuration.length >= 2
+      ? selectedDealsFromCuration
+      : retrievedDeals.slice(0, 4);
+  logItineraryStep(context, "curation.done", {
+    selectedDealIds: curated.selectedDealIds,
+    validSelectedDealIds: selectedDealsFromCuration.map((deal) => deal.id),
+    invalidSelectedDealIds,
+    fallbackToTopDeals: selectedDealsFromCuration.length < 2,
   });
-  const formatterResult = await run(
-    formatterAgent,
-    JSON.stringify({
-      userQuery: request.query,
+
+  let itinerary: Itinerary;
+  try {
+    itinerary = await runFormatterAgent(
+      Agent,
+      run,
+      baseAgentConfig,
+      request,
       constraints,
       curated,
-      selectedDeals: selectedDeals.length >= 2 ? selectedDeals : retrievedDeals.slice(0, 4),
-    }),
-    {
-      maxTurns: 3,
+      selectedDeals,
+      context,
+      1
+    );
+  } catch (error) {
+    logItineraryStep(context, "formatter.attempt_1.error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    try {
+      itinerary = await runFormatterAgent(
+        Agent,
+        run,
+        baseAgentConfig,
+        request,
+        constraints,
+        curated,
+        selectedDeals,
+        context,
+        2
+      );
+    } catch (retryError) {
+      logItineraryStep(context, "formatter.attempt_2.error", {
+        message: retryError instanceof Error ? retryError.message : String(retryError),
+        fallback: "deterministic_live_deals",
+      });
+      itinerary = dealsToItinerary(request.query, constraints, selectedDeals);
     }
-  );
+  }
+
+  logItineraryStep(context, "pipeline.done", {
+    title: itinerary.title,
+    activityCount: itinerary.activities.length,
+  });
 
   return {
     itinerary: withDerivedItineraryMetadata(
-      ItinerarySchema.parse(formatterResult.finalOutput),
+      ItinerarySchema.parse(itinerary),
       constraints
     ),
     constraints,
