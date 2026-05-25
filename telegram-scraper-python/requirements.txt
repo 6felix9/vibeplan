@@ -4,3 +4,8 @@ supabase
 openai
 pydantic
 tenacity
+scrapling
+playwright
+curl_cffi
+patchright
+msgspec
