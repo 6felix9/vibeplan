@@ -65,7 +65,7 @@ Paste the output as the `TELEGRAM_SESSION` secret. If the session ever invalidat
 
 ## 3. RAG initialisation (first-time setup)
 
-1. Run `rag_migration.sql` in the **Supabase SQL Editor** to add the pgvector-backed search function.
+1. Run `supabase/rag_migration.sql` in the **Supabase SQL Editor** to enable pgvector, create the `deals` table, and add the `match_deals` search function.
 2. Backfill embeddings for any existing deals:
    ```bash
    cd telegram-scraper-python

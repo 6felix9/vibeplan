@@ -5,19 +5,74 @@ A Singapore deals discovery and itinerary planner. Users browse live deals scrap
 ## How it works
 
 ```
-GitHub Action (cron every 6h)
-  └── telegram-scraper-python/
-        scrapes Telegram channels → extracts deals via OpenAI
-        → inserts into Supabase deals table
-        → if new deals: POST /api/revalidate (busts the cached discover page)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ SCRAPER  ·  GitHub Actions cron every 6h
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Supabase
-  └── deals table ← scraper writes, app reads
+ Telegram channels
+   (deal messages)
+         │
+         ▼
+   OpenAI extraction
+   (name, price, location,
+    category, expiry…)
+         │
+         ▼
+   Supabase
+   ┌──────────────────────────────────┐
+   │  deals table                     │
+   │  pgvector embeddings             │  ◄── written here
+   └──────────────────────────────────┘
+         │
+         ▼
+   POST /api/revalidate
+   (bust the home page cache
+    so new deals appear live)
 
-vibeplan-app/ (Next.js on Vercel)
-  └── / (home)      — serves cached deals (1h TTL, busted on scraper run)
-  └── /api/revalidate — clears the deals cache on demand (secret-protected)
-  └── /loading → /results — AI itinerary planner (RAG over deals via pgvector)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ WEB APP  ·  Next.js on Vercel
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ / (home page)
+ ┌──────────────────────────────────┐
+ │  deal catalogue                  │  ◄── Supabase read
+ │  cached 1h, busted by scraper    │
+ └──────────────────────────────────┘
+
+ User types a query
+ e.g. "date night in Tiong Bahru under $80"
+         │
+         ▼
+   /loading  →  POST /api/itinerary
+         │
+         ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Planner Agent                                  │
+  │  · parses query into constraints                │
+  │    (area, budget, vibe, categories)             │
+  │  · calls search_deals tool                      │
+  │    → semantic search over pgvector embeddings   │
+  └───────────────────┬─────────────────────────────┘
+                      │  candidate deals
+                      ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Curation Agent                                 │
+  │  · ranks candidates                             │
+  │  · selects 2–5 deals by area, budget, timing    │
+  └───────────────────┬─────────────────────────────┘
+                      │  shortlisted deals
+                      ▼
+  ┌─────────────────────────────────────────────────┐
+  │  Formatter Agent                                │
+  │  · builds time-blocked itinerary                │
+  │  · adds travel cues and budget totals           │
+  │  · falls back to deterministic build if needed  │
+  └───────────────────┬─────────────────────────────┘
+                      │
+                      ▼
+            /results page
+            (save, swap stops, view map)
 ```
 
 ## Repo structure
