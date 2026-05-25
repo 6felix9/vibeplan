@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
+  ArrowUpDown,
   CalendarDays,
   Clock,
   Heart,
@@ -29,6 +30,22 @@ import { cn } from "@/lib/utils";
 import { useSavedActivities } from "@/lib/hooks/useSavedActivities";
 
 const CATEGORY_KEY = "vibeplan:discover-category";
+
+type SortOrder = "random" | "newest" | "price-asc" | "price-desc" | "a-z";
+
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: "random", label: "Random" },
+  { value: "newest", label: "Recently Added" },
+  { value: "price-asc", label: "Price: Low → High" },
+  { value: "price-desc", label: "Price: High → Low" },
+  { value: "a-z", label: "A–Z" },
+];
+
+function parsePriceValue(price: string): number {
+  const match = price.match(/[\d,]+(\.\d+)?/);
+  if (!match) return 0;
+  return parseFloat(match[0].replace(/,/g, ""));
+}
 
 function buildLoadingHref(query: string) {
   const searchParams = {
@@ -66,6 +83,9 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
     null
   );
   const [activities, setActivities] = useState<HomeActivity[] | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("random");
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
   const { isSaved, toggleSaved } = useSavedActivities();
 
   useEffect(() => {
@@ -91,6 +111,16 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
     }
   }, [initialActivities]);
 
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    if (isSortOpen) document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isSortOpen]);
+
   const selectCategory = (category: string) => {
     setSelectedCategory(category);
     localStorage.setItem(CATEGORY_KEY, category);
@@ -98,9 +128,26 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
 
   const featuredActivities = useMemo(() => {
     if (!activities) return [];
-    if (selectedCategory === "All") return activities;
-    return activities.filter((activity) => activity.category === selectedCategory);
-  }, [selectedCategory, activities]);
+    const filtered =
+      selectedCategory === "All"
+        ? activities
+        : activities.filter((a) => a.category === selectedCategory);
+
+    if (sortOrder === "random") return filtered;
+
+    const sorted = [...filtered];
+    if (sortOrder === "newest") {
+      const originalIndex = new Map(initialActivities.map((a, i) => [a.id, i]));
+      sorted.sort((a, b) => (originalIndex.get(a.id) ?? 0) - (originalIndex.get(b.id) ?? 0));
+    } else if (sortOrder === "price-asc") {
+      sorted.sort((a, b) => parsePriceValue(a.price) - parsePriceValue(b.price));
+    } else if (sortOrder === "price-desc") {
+      sorted.sort((a, b) => parsePriceValue(b.price) - parsePriceValue(a.price));
+    } else if (sortOrder === "a-z") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return sorted;
+  }, [selectedCategory, activities, sortOrder, initialActivities]);
 
   const submitSearch = (searchQuery: string) => {
     const trimmedQuery = searchQuery.trim();
@@ -186,9 +233,51 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
                 Activities, promos, and little plans
               </h1>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              {featuredActivities.length} pick{featuredActivities.length === 1 ? "" : "s"} matching your filter.
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm leading-6 text-muted-foreground">
+                {featuredActivities.length} pick{featuredActivities.length === 1 ? "" : "s"}
+              </p>
+              <div ref={sortRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSortOpen((o) => !o)}
+                  className={cn(
+                    "flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2",
+                    isSortOpen
+                      ? "border-[#d72d2d] bg-[#d72d2d] text-white"
+                      : "border-red-100 bg-white/70 text-primary/75 hover:border-red-200 hover:bg-white hover:text-primary"
+                  )}
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">
+                    {SORT_OPTIONS.find((o) => o.value === sortOrder)?.label ?? "Sort"}
+                  </span>
+                  <span className="sm:hidden">Sort</span>
+                </button>
+                {isSortOpen && (
+                  <div className="absolute left-0 top-11 z-30 min-w-[180px] rounded-xl border border-red-100 bg-[#fffdf8] py-1 shadow-lg sm:left-auto sm:right-0">
+                    {SORT_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setSortOrder(option.value);
+                          setIsSortOpen(false);
+                        }}
+                        className={cn(
+                          "w-full px-4 py-2 text-left text-sm transition-colors hover:bg-red-50",
+                          sortOrder === option.value
+                            ? "font-semibold text-[#d72d2d]"
+                            : "text-primary/80"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 items-start">
