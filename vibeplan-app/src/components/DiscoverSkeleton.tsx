@@ -19,19 +19,21 @@ const NOTE_CLASSES = [
   "rotate-[-1deg]",
 ];
 
-export function DiscoverSkeleton() {
+export function DiscoverSkeleton({ count = 8, showHeader = true }: { count?: number; showHeader?: boolean }) {
   return (
     <section className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-col gap-2 px-1.5 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:px-0">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-8 w-72" />
+      {showHeader && (
+        <div className="mb-4 flex flex-col gap-2 px-1.5 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:px-0">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-72" />
+          </div>
+          <Skeleton className="h-4 w-28" />
         </div>
-        <Skeleton className="h-4 w-28" />
-      </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 items-start">
-        {Array.from({ length: 8 }).map((_, i) => (
+        {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
             className={cn(

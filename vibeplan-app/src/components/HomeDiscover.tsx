@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -30,6 +30,9 @@ import { cn } from "@/lib/utils";
 import { useSavedActivities } from "@/lib/hooks/useSavedActivities";
 
 const CATEGORY_KEY = "vibeplan:discover-category";
+const PAGE_SIZE_MOBILE = 25;
+const PAGE_SIZE_DESKTOP = 50;
+const LOAD_MORE_BATCH = 25;
 
 type SortOrder = "random" | "newest" | "price-asc" | "price-desc" | "a-z";
 
@@ -82,24 +85,40 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
   const [selectedActivity, setSelectedActivity] = useState<HomeActivity | null>(
     null
   );
-  const [activities, setActivities] = useState<HomeActivity[] | null>(null);
+  const [allActivities, setAllActivities] = useState<HomeActivity[] | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("random");
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE_DESKTOP);
+  const [isFetching, setIsFetching] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const sortRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const { isSaved, toggleSaved } = useSavedActivities();
 
   useEffect(() => {
     const frameId = requestAnimationFrame(() => {
-      setActivities(shuffleActivities(initialActivities));
+      setAllActivities(shuffleActivities(initialActivities));
     });
 
     return () => cancelAnimationFrame(frameId);
   }, [initialActivities]);
 
-  const categories = useMemo(() => {
-    const allCats = initialActivities.map((activity) => activity.category);
-    return ["All", ...Array.from(new Set(allCats))];
-  }, [initialActivities]);
+  useEffect(() => {
+    const isMobile = window.innerWidth < 640;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVisibleCount(isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP);
+  }, []);
+
+  const [categories, setCategories] = useState<string[]>(["All"]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then(({ categories: cats }: { categories: string[] }) => {
+        if (Array.isArray(cats) && cats.length > 1) setCategories(cats);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem(CATEGORY_KEY);
@@ -127,11 +146,11 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
   };
 
   const featuredActivities = useMemo(() => {
-    if (!activities) return [];
+    if (!allActivities) return [];
     const filtered =
       selectedCategory === "All"
-        ? activities
-        : activities.filter((a) => a.category === selectedCategory);
+        ? allActivities
+        : allActivities.filter((a) => a.category === selectedCategory);
 
     if (sortOrder === "random") return filtered;
 
@@ -147,7 +166,53 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
       sorted.sort((a, b) => a.title.localeCompare(b.title));
     }
     return sorted;
-  }, [selectedCategory, activities, sortOrder, initialActivities]);
+  }, [selectedCategory, allActivities, sortOrder, initialActivities]);
+
+  const visibleActivities = useMemo(
+    () => featuredActivities.slice(0, visibleCount),
+    [featuredActivities, visibleCount]
+  );
+
+  useEffect(() => {
+    const isMobile = window.innerWidth < 640;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVisibleCount(isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP);
+  }, [selectedCategory, sortOrder]);
+
+  const handleLoadMore = useCallback(async () => {
+    if (isFetching) return;
+
+    if (visibleCount < featuredActivities.length) {
+      setVisibleCount((c) => c + LOAD_MORE_BATCH);
+      return;
+    }
+
+    if (!hasMore) return;
+
+    setIsFetching(true);
+    try {
+      const res = await fetch(
+        `/api/deals?offset=${allActivities?.length ?? 0}&limit=${LOAD_MORE_BATCH}`
+      );
+      const { deals, hasMore: more } = await res.json();
+      setAllActivities((prev) => [...(prev ?? []), ...deals]);
+      setHasMore(more);
+      setVisibleCount((c) => c + LOAD_MORE_BATCH);
+    } finally {
+      setIsFetching(false);
+    }
+  }, [isFetching, visibleCount, featuredActivities.length, hasMore, allActivities]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) handleLoadMore(); },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [handleLoadMore]);
 
   const submitSearch = (searchQuery: string) => {
     const trimmedQuery = searchQuery.trim();
@@ -222,7 +287,7 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
           </div>
         </section>
 
-        {activities ? (
+        {allActivities ? (
         <section className="mx-auto max-w-7xl">
           <div className="mb-4 flex flex-col gap-2 px-1.5 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:px-0">
             <div>
@@ -235,7 +300,7 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
             </div>
             <div className="flex items-center gap-3">
               <p className="text-sm leading-6 text-muted-foreground">
-                {featuredActivities.length} pick{featuredActivities.length === 1 ? "" : "s"}
+                1–{Math.min(visibleCount, featuredActivities.length)} deals
               </p>
               <div ref={sortRef} className="relative">
                 <button
@@ -281,7 +346,7 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 items-start">
-            {featuredActivities.map((activity, index) => (
+            {visibleActivities.map((activity, index) => (
               <div
                 key={activity.id}
                 role="button"
@@ -371,6 +436,12 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
               </div>
             ))}
           </div>
+          <div ref={sentinelRef} className="h-1" />
+          {isFetching && (
+            <div className="mt-4">
+              <DiscoverSkeleton count={4} showHeader={false} />
+            </div>
+          )}
         </section>
         ) : (
           <DiscoverSkeleton />

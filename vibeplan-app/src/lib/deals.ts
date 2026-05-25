@@ -63,7 +63,8 @@ async function fetchDeals(): Promise<HomeActivity[]> {
     const { data, error } = await supabase
       .from("deals")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (error) {
       console.error("Error fetching deals from Supabase:", error);
@@ -81,3 +82,30 @@ export const getDeals = unstable_cache(fetchDeals, ["home-deals"], {
   revalidate: 3600,
   tags: ["deals"],
 });
+
+export async function fetchDealsPage(offset: number, limit: number): Promise<HomeActivity[]> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("placeholder")) {
+    return homeActivities.slice(offset, offset + limit);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("deals")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("Error fetching deals page from Supabase:", error);
+      return [];
+    }
+
+    return data ? data.map((deal, idx) => mapDbDealToActivity(deal, offset + idx)) : [];
+  } catch (err) {
+    console.error("Failed to connect to Supabase:", err);
+    return [];
+  }
+}
