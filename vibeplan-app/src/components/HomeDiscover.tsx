@@ -255,7 +255,7 @@ export function HomeDiscover({ initialActivities }: { initialActivities: HomeAct
                   <span className="sm:hidden">Sort</span>
                 </button>
                 {isSortOpen && (
-                  <div className="absolute right-0 top-11 z-30 min-w-[180px] rounded-xl border border-red-100 bg-[#fffdf8] py-1 shadow-lg">
+                  <div className="absolute left-0 top-11 z-30 min-w-[180px] rounded-xl border border-red-100 bg-[#fffdf8] py-1 shadow-lg sm:left-auto sm:right-0">
                     {SORT_OPTIONS.map((option) => (
                       <button
                         key={option.value}
