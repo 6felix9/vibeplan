@@ -1,4 +1,12 @@
-# VibePlan
+<div align="center">
+
+# Vibeplan
+
+<img src="vibeplan-app/src/app/assets/Icon Logo.png" alt="Vibeplan Icon" height="120" style="vertical-align: middle;" />&nbsp;&nbsp;<img src="vibeplan-app/src/app/assets/Full Logo.png" alt="Vibeplan" height="120" style="vertical-align: middle;" />
+
+*Find deals like never before*
+
+</div>
 
 A Singapore deals discovery and itinerary planner. Users browse live deals scraped from Telegram channels and generate AI-powered activity plans.
 
