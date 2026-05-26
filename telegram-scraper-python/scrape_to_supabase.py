@@ -123,7 +123,7 @@ def normalize_deal_data(data: Any) -> dict:
                 tags = [tags]
             elif not isinstance(tags, list):
                 tags = []
-            normalized[key] = [str(tag).strip() for tag in tags if str(tag).strip()][:3]
+            normalized[key] = [str(tag).strip().lower() for tag in tags if str(tag).strip()][:3]
         else:
             normalized[key] = str(data.get(key, "") or "").strip()
 
@@ -131,7 +131,7 @@ def normalize_deal_data(data: Any) -> dict:
     if normalized["category"] not in ALLOWED_CATEGORIES:
         normalized["category"] = "Offer"
     if not normalized["tags"]:
-        normalized["tags"] = [normalized["category"], "Promo"]
+        normalized["tags"] = [normalized["category"].lower(), "promo"]
 
     return normalized
 
