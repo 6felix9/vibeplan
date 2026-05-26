@@ -101,6 +101,7 @@ TARGET_CHANNELS = [
     "nusfoodies",
     "ThisCounted",
     "https://t.me/+K0Cj1uIDRDtjM2U1",
+    "https://t.me/joinchat/TxqQuSdtT1fWlFFt",
     "goodlobang",
     "confirmgood"
 ]
