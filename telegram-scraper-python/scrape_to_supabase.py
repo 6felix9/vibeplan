@@ -62,7 +62,7 @@ class DealExtraction(BaseModel):
     title: str = Field(description="Short, catchy name of the deal or activity, max 45 characters")
     category: str = Field(description="One of: Artsy, Event, Food, Sports, Shopping, Offer, Outdoor, Games, Culture, Promo")
     description: str = Field(description="Engaging summary of the deal in 1-2 sentences")
-    price: str = Field(description="Price information, such as '$18 entry', '$12-$22', 'Free', or '$28 per pax'")
+    price: str = Field(description="Price information. Use 'Free' if the deal is free. Use '1-for-1' if it is a buy-one-get-one deal. Use the dollar amount (e.g. '$18 entry', '$12-$22', '$28 per pax') if stated. Use 'Not Applicable' if the post is not an actionable deal (e.g. a guide, roundup, event listing with no offer, or general content). Return empty string only if a price genuinely exists but cannot be determined.")
     time_info: str = Field(description="Validity or timing, such as 'Daily, lunch onward', 'Valid till 31 May', or 'Fri, 8:30 PM'")
     location: str = Field(description="Location name, such as 'Bugis', 'Multiple locations', or 'Tiong Bahru Studio'")
     discount: str = Field(description="Discount details, if any")
@@ -436,6 +436,13 @@ You are an AI assistant that extracts details of deals, promos, activities, and 
 Analyze the Telegram message and return structured data for the deal.
 
 Use the schema descriptions exactly. If a field is not present in the message, return an empty string for that field. Return 2-3 short tags.
+
+For the price field specifically:
+- "Free" → if the deal/event is free
+- "1-for-1" → if it is a buy-one-get-one or 1-for-1 promotion
+- Dollar amount → if the price is stated (e.g. "$12", "$8-$15", "$28 per pax")
+- "Not Applicable" → if the post is a guide, roundup, listicle, general content, or event with no specific offer
+- Empty string → only if a price clearly exists but cannot be read from the message
 """
         response = openai_client.responses.parse(
             model=OPENAI_MODEL,
