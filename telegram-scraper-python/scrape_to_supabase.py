@@ -626,6 +626,51 @@ def trigger_revalidate():
         print(f"  ⚠️  Cache revalidation failed (non-fatal): {e}")
 
 
+def cleanup_expired_deals():
+    now = datetime.now(timezone.utc)
+    cutoff_20d = now - timedelta(days=20)
+
+    r1 = supabase.table('deals').select('id,image_url') \
+        .not_.is_('expiry_at', 'null') \
+        .lt('expiry_at', now.isoformat()) \
+        .execute()
+
+    r2 = supabase.table('deals').select('id,image_url') \
+        .is_('expiry_at', 'null') \
+        .lt('refreshed_at', cutoff_20d.isoformat()) \
+        .execute()
+
+    rows = (r1.data or []) + (r2.data or [])
+    if not rows:
+        print("Cleanup: no expired deals found.")
+        return
+
+    print(f"Cleanup: removing {len(rows)} expired deals...")
+
+    storage_prefix = '/storage/v1/object/public/deal-images/'
+    image_files = []
+    for row in rows:
+        url = row.get('image_url') or ''
+        if storage_prefix in url:
+            file_name = url.split(storage_prefix, 1)[1]
+            if file_name:
+                image_files.append(file_name)
+
+    if image_files:
+        try:
+            supabase.storage.from_('deal-images').remove(image_files)
+            print(f"Cleanup: deleted {len(image_files)} images from storage.")
+        except Exception as e:
+            print(f"Cleanup: storage deletion error: {e}")
+
+    ids = [row['id'] for row in rows]
+    try:
+        supabase.table('deals').delete().in_('id', ids).execute()
+        print(f"Cleanup: deleted {len(ids)} deals from table.")
+    except Exception as e:
+        print(f"Cleanup: table deletion error: {e}")
+
+
 async def scrape_channels(limit=35):
     os.makedirs('downloads', exist_ok=True)
 
@@ -634,6 +679,8 @@ async def scrape_channels(limit=35):
         print("Ensured bucket 'deal-images' exists.")
     except Exception:
         pass
+
+    cleanup_expired_deals()
 
     # Cap concurrent OpenAI API calls to avoid rate limits
     openai_sem = asyncio.Semaphore(5)
