@@ -8,8 +8,9 @@ After a successful run it pings the Next.js app's `/api/revalidate` endpoint to 
 
 | Command | What it does |
 |---|---|
-| `python scrape_to_supabase.py` | Main scrape run — fetches 35 messages per channel, processes in parallel |
+| `python scrape_to_supabase.py` | Main scrape run — cleans up expired deals, then fetches 35 messages per channel, processes in parallel |
 | `python scrape_to_supabase.py backfill-embeddings` | Backfills `embedding` column for existing rows missing it |
+| `python scrape_to_supabase.py backfill-coordinates` | Re-geocodes all rows with non-null location text via OneMap |
 
 Run from inside the `telegram-scraper-python/` directory with the venv activated:
 ```bash
@@ -23,9 +24,11 @@ python scrape_to_supabase.py
 TELEGRAM_API_ID=               # integer, from my.telegram.org
 TELEGRAM_API_HASH=             # string, from my.telegram.org
 SUPABASE_URL=                  # or NEXT_PUBLIC_SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY=     # needs insert/update on deals table + storage
+SUPABASE_SERVICE_ROLE_KEY=     # needs insert/update/delete on deals table + storage
 OPENAI_API_KEY=                # required — messages are skipped if missing
 OPENAI_EMBEDDING_MODEL=        # optional, defaults to text-embedding-3-small
+ONEMAP_API_EMAIL=              # required for geocoding
+ONEMAP_API_PASSWORD=           # required for geocoding
 
 # Cache revalidation (optional — skipped silently if unset)
 REVALIDATE_URL=                # https://<app>.vercel.app/api/revalidate
@@ -38,6 +41,7 @@ A Telegram session file (`scraper_session.session`) is created on first run — 
 
 ```
 scrape_channels()
+  ├── cleanup_expired_deals()   ← removes expired rows + their storage images
   ├── joins private channels sequentially (invite links only)
   └── asyncio.gather → _scrape_one_channel() × N channels (concurrent)
         └── asyncio.gather → _process_message() × M messages (concurrent)
@@ -50,6 +54,14 @@ scrape_channels()
 ```
 
 OpenAI calls are capped at 5 concurrent requests via `asyncio.Semaphore(5)`. If extraction fails after 3 retries the message is skipped.
+
+## Expired deal cleanup
+
+`cleanup_expired_deals()` runs automatically at the start of every scrape. It deletes:
+- Deals where `expiry_at < now`
+- Deals where `expiry_at IS NULL` and `refreshed_at < now - 20 days`
+
+For each deleted deal it also removes the corresponding image from the `deal-images` Storage bucket.
 
 ## Target channels
 
@@ -70,16 +82,16 @@ Key columns written per deal:
 | `category` | text | one of the 10 allowed categories |
 | `description` | text | |
 | `image_url` | text | Supabase Storage public URL if photo present |
-| `price` | text | human-readable |
-| `price_amount` | float | parsed numeric value |
+| `price` | text | See price conventions below |
+| `price_amount` | float | numeric value parsed from `price`; `0` for `"Free"`, null if no dollar amount found |
 | `discount` | text | |
 | `discount_amount` | float | parsed numeric value |
 | `time_info` | text | |
-| `expiry_at` | timestamptz | estimated from `time_info` |
+| `expiry_at` | timestamptz | estimated from `time_info`; defaults to +60 days if missing |
 | `location` | text | |
-| `lat` / `lng` | float | estimated from known SG locations |
+| `lat` / `lng` | float, nullable | geocoded via OneMap; **null if location is unresolvable or missing** — excluded from map display |
 | `vibe` | text | 3-4 word phrase |
-| `tags` | text[] | 2-3 tags |
+| `tags` | text[] | 2-3 tags, always lowercase |
 | `source_link` | text | direct Telegram message URL |
 | `channel_name` | text | |
 | `message_id` | int | |
@@ -91,6 +103,20 @@ Key columns written per deal:
 | `refreshed_at` | timestamptz | set on every write |
 
 Storage bucket: `deal-images` (public). Created automatically on run if it doesn't exist.
+
+### Price field conventions
+
+The `price` text field uses these values:
+
+| Value | Meaning |
+|---|---|
+| `"Free"` | Deal or event is free |
+| `"1-for-1"` | Buy-one-get-one / 1-for-1 promotion |
+| `"$X"` / `"$X–$Y"` / `"X% off"` etc. | Specific price or discount stated in the post |
+| `"Not Applicable"` | Post is a guide, roundup, new menu launch, or general content — no actionable deal price |
+| `""` (empty) | A price clearly exists but could not be read from the message — rare last resort |
+
+`price_amount` (float) is parsed from `price`: `"Free"` → `0`, numeric amounts → their value, everything else → `null`.
 
 ## Allowed categories
 
@@ -112,3 +138,5 @@ Anything OpenAI returns outside this set is coerced to `"Offer"`.
 **Tune OpenAI concurrency**: change `asyncio.Semaphore(5)` in `scrape_channels()`.
 
 **Backfill embeddings for old rows**: `python scrape_to_supabase.py backfill-embeddings`
+
+**Re-geocode all rows after geocoding changes**: `python scrape_to_supabase.py backfill-coordinates`

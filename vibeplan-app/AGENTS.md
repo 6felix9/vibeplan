@@ -14,6 +14,10 @@ This is the Next.js App Router frontend, part of the [VibePlan monorepo](../READ
 
 Deals are fetched and cached in `src/lib/deals.ts` via `unstable_cache` (tag `"deals"`, 1h TTL). The `POST /api/revalidate` route calls `revalidateTag("deals")` to bust the cache on demand — this is called by the scraper after each run so new deals appear immediately. `REVALIDATE_SECRET` env var is required; the scraper authenticates via `Authorization: Bearer <secret>`.
 
+## Deal coordinates and map display
+
+`Deal.lat` and `Deal.lng` are nullable (`number | null`). Deals with null coordinates have no geocodable location (chain-wide promotions, online-only, or posts with no address) and are excluded from map display. `ItineraryActivity.coordinates` is optional for the same reason — `ItineraryMap` filters to valid coordinates before rendering pins. The `distanceScore()` function in `api/itinerary/swap/` returns `Infinity` for null-coord deals so they rank last on proximity swaps.
+
 ## Build, test, and development commands
 
 - `npm run dev` — start the development server.

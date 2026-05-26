@@ -105,6 +105,7 @@ The scraper currently pulls from these Telegram channels (defined in `TARGET_CHA
 | goodlobang | Public | `@goodlobang` |
 | confirmgood | Public | `@confirmgood` |
 | *(private channel)* | Private | `https://t.me/+K0Cj1uIDRDtjM2U1` |
+| *(private channel)* | Private | `https://t.me/joinchat/TxqQuSdtT1fWlFFt` |
 
 To add a new channel, append to `TARGET_CHANNELS` — bare username for public channels, full `https://t.me/+...` URL for private invite links.
 

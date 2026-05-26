@@ -43,8 +43,10 @@ Go to **Settings → Secrets and variables → Actions** and add:
 | `TELEGRAM_API_HASH` | String API hash from my.telegram.org |
 | `TELEGRAM_SESSION` | Base64-encoded Telegram session file (see below) |
 | `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (insert/update on deals table + storage) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (insert/update/delete on deals table + storage) |
 | `OPENAI_API_KEY` | OpenAI API key |
+| `ONEMAP_API_EMAIL` | OneMap account email (see below) |
+| `ONEMAP_API_PASSWORD` | OneMap account password |
 | `REVALIDATE_URL` | `https://<your-app>.vercel.app/api/revalidate` |
 | `REVALIDATE_SECRET` | Same value as the Vercel env var |
 
@@ -60,6 +62,16 @@ base64 -i scraper_session.session | pbcopy   # macOS: copies to clipboard
 ```
 
 Paste the output as the `TELEGRAM_SESSION` secret. If the session ever invalidates (Telegram revokes it), re-run the scraper locally to regenerate, then update the secret.
+
+### Getting a OneMap API account
+
+OneMap is Singapore's national geocoding API, used to resolve deal locations to lat/lng coordinates.
+
+1. Go to [https://www.onemap.gov.sg/apidocs/](https://www.onemap.gov.sg/apidocs/) and click **Register**.
+2. Sign up with an email address — approval is instant.
+3. Your email and password become `ONEMAP_API_EMAIL` and `ONEMAP_API_PASSWORD`.
+
+The scraper authenticates on first use and caches the token (valid 72 hours) in memory for the duration of the run. No API key or OAuth flow — just email/password. The free tier is sufficient.
 
 ---
 
