@@ -4,3 +4,4 @@ supabase
 openai
 pydantic
 tenacity
+requests

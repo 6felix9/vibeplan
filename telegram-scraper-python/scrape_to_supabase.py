@@ -3,6 +3,9 @@ import os
 import re
 import sys
 import json
+import time
+import urllib.parse
+import requests
 from datetime import datetime, timedelta, timezone
 from mimetypes import guess_type
 from typing import Any
@@ -161,8 +164,156 @@ def estimate_expiry(time_info: str | None) -> str:
     return (now + timedelta(days=60)).isoformat()
 
 
+def clean_location_for_search(location: str) -> str:
+    """Cleans up units, parentheses, and spelling of location names for search optimization."""
+    # 1. Remove parenthetical descriptions like (Beside Waa Cow!), (Opp MRT)
+    text = re.sub(r'\(.*?\)', '', location)
+
+    # 2. Remove unit numbers like #01-06, #B1-23/24, #02-12A
+    text = re.sub(r'#\s*[a-zA-Z0-9_-]+(?:\s*/\s*[a-zA-Z0-9_-]+)*', '', text)
+
+    # 3. Remove unit numbers without # prefix like 04-24, B1-44C, L61-62, 01-114
+    text = re.sub(r'\b[A-Z]?\d{1,2}-\d{2,3}[A-Z]?\b', '', text)
+
+    # 4. Remove floor references like "Level 2", "L3", "L2-01"
+    text = re.sub(r'(?i)\b(?:level|lvl|floor)\s*\d+\b', '', text)
+
+    # 5. Replace common spelling variations (like "center" -> "centre")
+    text = re.sub(r'(?i)\bcenter\b', 'centre', text)
+
+    # 6. Remove excess spaces and trailing commas/pipes
+    text = re.sub(r'\s+', ' ', text).strip().strip(',').strip()
+
+    return text
+
+
+NUS_KEYWORDS = ['nus ', 'utown', 'u-town', 'com 2', 'com2', 'clb', 'central library',
+                'pgp', 'yusof ishak', 'kent ridge', 'bukit timah campus', 'md11',
+                'techno edge', 'flavours', 'the ridge', 'lt27', 'university hall']
+
+def _is_nus_location(location: str) -> bool:
+    lower = location.lower()
+    return any(k in lower for k in NUS_KEYWORDS)
+
+
+class OneMapClient:
+    def __init__(self):
+        self.email = os.getenv("ONEMAP_API_EMAIL")
+        self.password = os.getenv("ONEMAP_API_PASSWORD")
+        self.token = None
+        self.token_expiry = 0  # Unix timestamp
+
+    def get_token(self) -> str | None:
+        """Retrieves a cached token or requests a new one if expired."""
+        now = time.time()
+        
+        # If token exists and has at least 12 hours left (out of 72 hours), reuse it
+        if self.token and now < (self.token_expiry - 43200):
+            return self.token
+
+        if not self.email or not self.password:
+            print("Warning: ONEMAP_API_EMAIL or ONEMAP_API_PASSWORD environment variables not set.")
+            return None
+
+        try:
+            url = "https://www.onemap.gov.sg/api/auth/post/getToken"
+            response = requests.post(url, json={
+                "email": self.email,
+                "password": self.password
+            }, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.token = data.get("access_token")
+                # Set expiry timestamp (3 days = 259,200 seconds)
+                self.token_expiry = now + 259200
+                print("OneMap access token successfully generated/refreshed.")
+                return self.token
+            else:
+                print(f"Failed to fetch OneMap token: {response.status_code} {response.text}")
+        except Exception as e:
+            print(f"Error authenticating with OneMap: {e}")
+        
+        return None
+
+    def _query(self, token: str, search_val: str) -> dict | None:
+        """Single OneMap search query; returns first result or None."""
+        try:
+            response = requests.get(
+                "https://www.onemap.gov.sg/api/common/elastic/search",
+                params={"searchVal": search_val, "returnGeom": "Y", "getAddrDetails": "N"},
+                headers={"Authorization": token},
+                timeout=10,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("found", 0) > 0:
+                    return data["results"][0]
+            elif response.status_code == 401:
+                return "401"
+        except Exception as e:
+            print(f"OneMap search API request failed: {e}")
+        return None
+
+    def search_location(self, location_name: str, _retry: bool = False) -> dict | None:
+        """Queries the OneMap search endpoint using the access token."""
+        token = self.get_token()
+        if not token or not location_name:
+            return None
+
+        cleaned_name = clean_location_for_search(location_name)
+        if not cleaned_name:
+            return None
+
+        result = self._query(token, cleaned_name)
+
+        if result == "401":
+            if _retry:
+                return None
+            print("OneMap token unauthorized (401). Retrying with a fresh token...")
+            self.token = None
+            self.token_expiry = 0
+            return self.search_location(location_name, _retry=True)
+
+        if result:
+            return result
+
+        # Full string returned nothing — try each segment split by common delimiters
+        segments = re.split(r'[,|;&]|\s+-\s+|\s+and\s+', cleaned_name)
+        for segment in segments:
+            segment = segment.strip().strip(',').strip()
+            if len(segment) < 3:
+                continue
+            seg_result = self._query(token, segment)
+            if seg_result and seg_result != "401":
+                return seg_result
+
+        return None
+
+# Instantiate OneMap client globally
+onemap_client = OneMapClient()
+
+
 def estimate_coordinates(location: str | None) -> tuple[float, float]:
-    text = (location or "").lower()
+    if not location:
+        return 1.3521, 103.8198
+
+    # 1. NUS campus shorthand — OneMap doesn't index internal campus names
+    if _is_nus_location(location):
+        return 1.2976, 103.7767
+
+    # 2. Attempt geocoding using OneMap API
+    result = onemap_client.search_location(location)
+    if result:
+        try:
+            lat = float(result["LATITUDE"])
+            lng = float(result["LONGITUDE"])
+            return lat, lng
+        except (ValueError, KeyError, TypeError):
+            pass
+
+    # 3. Fallback: Keyword lookup
+    text = location.lower()
     known_locations = [
         ("orchard", 1.3048, 103.8318),
         ("somerset", 1.3003, 103.8377),
@@ -180,7 +331,9 @@ def estimate_coordinates(location: str | None) -> tuple[float, float]:
         if hint in text:
             return lat, lng
 
+    # 4. Final Fallback: Center of Singapore
     return 1.3521, 103.8198
+
 
 
 def build_embedding_text(deal: dict) -> str:
@@ -547,8 +700,60 @@ def backfill_missing_embeddings(limit=100):
         except Exception as e:
             print(f"  ❌ Failed to backfill {row.get('id')}: {e}")
 
+def backfill_coordinates(batch_size=200):
+    offset = 0
+    updated = 0
+    skipped = 0
+    errors = 0
+
+    print("Starting coordinate backfill...")
+
+    while True:
+        try:
+            result = (
+                supabase
+                .table('deals')
+                .select('id,location,lat,lng')
+                .not_.is_('location', 'null')
+                .neq('location', '')
+                .range(offset, offset + batch_size - 1)
+                .execute()
+            )
+        except Exception as e:
+            print(f"Could not fetch batch at offset {offset}: {e}")
+            break
+
+        rows = result.data or []
+        if not rows:
+            break
+
+        print(f"Processing batch offset={offset} ({len(rows)} rows)...")
+
+        for row in rows:
+            new_lat, new_lng = estimate_coordinates(row["location"])
+
+            if row.get("lat") == new_lat and row.get("lng") == new_lng:
+                skipped += 1
+                continue
+
+            try:
+                supabase.table('deals').update({"lat": new_lat, "lng": new_lng}).eq('id', row["id"]).execute()
+                updated += 1
+            except Exception as e:
+                print(f"  Error updating {row.get('id')}: {e}")
+                errors += 1
+
+            time.sleep(0.3)
+
+        offset += batch_size
+
+    print(f"\nDone. Updated: {updated}, Skipped (unchanged): {skipped}, Errors: {errors}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "backfill-embeddings":
         backfill_missing_embeddings()
+    elif len(sys.argv) > 1 and sys.argv[1] == "backfill-coordinates":
+        backfill_coordinates()
     else:
         asyncio.run(scrape_channels())
