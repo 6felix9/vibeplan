@@ -24,8 +24,9 @@ const SwapRequestSchema = z.object({
 });
 
 function distanceScore(deal: Deal, target: z.infer<typeof ItineraryActivitySchema>) {
-  const latDiff = deal.lat - target.coordinates.lat;
-  const lngDiff = deal.lng - target.coordinates.lng;
+  if (deal.lat == null || deal.lng == null) return Infinity;
+  const latDiff = deal.lat - target.coordinates!.lat;
+  const lngDiff = deal.lng - target.coordinates!.lng;
   return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
 }
 

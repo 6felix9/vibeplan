@@ -105,10 +105,9 @@ export function dealToActivity(deal: Deal, id: number, time?: string): Itinerary
     source_deal_id: deal.id,
     category: deal.category,
     tags: deal.tags,
-    coordinates: {
-      lat: deal.lat,
-      lng: deal.lng,
-    },
+    ...(deal.lat != null && deal.lng != null
+      ? { coordinates: { lat: deal.lat, lng: deal.lng } }
+      : {}),
   };
 }
 

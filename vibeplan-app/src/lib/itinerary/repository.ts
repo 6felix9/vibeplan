@@ -129,8 +129,8 @@ export class SupabaseDealRepository implements DealRepository {
       price,
       discount_amount: discount,
       location: toStringValue(deal.location, "Singapore"),
-      lat: toNumberValue(deal.lat, 1.3521),
-      lng: toNumberValue(deal.lng, 103.8198),
+      lat: typeof deal.lat === "number" ? deal.lat : null,
+      lng: typeof deal.lng === "number" ? deal.lng : null,
       expiry_at:
         toStringValue(deal.expiry_at) ||
         new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),

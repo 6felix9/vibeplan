@@ -21,7 +21,7 @@ export const ItineraryActivitySchema = z.object({
   source_deal_id: z.string().optional(),
   category: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  coordinates: CoordinatesSchema,
+  coordinates: CoordinatesSchema.optional(),
 });
 
 export const ItinerarySummarySchema = z.object({
@@ -67,8 +67,8 @@ export const DealSchema = z.object({
   price: z.number(),
   discount_amount: z.number().nullable(),
   location: z.string(),
-  lat: z.number(),
-  lng: z.number(),
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
   expiry_at: z.string(),
   tags: z.array(z.string()),
   best_time: z.string(),

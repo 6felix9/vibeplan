@@ -294,9 +294,9 @@ class OneMapClient:
 onemap_client = OneMapClient()
 
 
-def estimate_coordinates(location: str | None) -> tuple[float, float]:
+def estimate_coordinates(location: str | None) -> tuple[float | None, float | None]:
     if not location:
-        return 1.3521, 103.8198
+        return None, None
 
     # 1. NUS campus shorthand — OneMap doesn't index internal campus names
     if _is_nus_location(location):
@@ -331,8 +331,7 @@ def estimate_coordinates(location: str | None) -> tuple[float, float]:
         if hint in text:
             return lat, lng
 
-    # 4. Final Fallback: Center of Singapore
-    return 1.3521, 103.8198
+    return None, None
 
 
 
